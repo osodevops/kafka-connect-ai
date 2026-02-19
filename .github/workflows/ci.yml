@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and test
+        run: mvn clean verify -pl nexus-api,nexus-adapter-http,nexus-adapter-jdbc,nexus-adapter-kafka,nexus-connect -am -B
+
+      - name: Upload uber JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-connect-uber-jar
+          path: nexus-connect/target/nexus-connect-*-all.jar
+          retention-days: 7
+
+  integration-test:
+    name: Integration Tests
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Download uber JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: nexus-connect-uber-jar
+          path: nexus-connect/target/
+
+      - name: Run integration tests
+        run: mvn verify -pl nexus-integration-tests -am -B

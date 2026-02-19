@@ -1,0 +1,35 @@
+services:
+  kafka:
+    extends:
+      file: docker-compose.yml
+      service: kafka
+
+  schema-registry:
+    extends:
+      file: docker-compose.yml
+      service: schema-registry
+
+  connect:
+    extends:
+      file: docker-compose.yml
+      service: connect
+
+  redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
+
+  wiremock:
+    image: wiremock/wiremock:3.9.2
+    hostname: wiremock
+    container_name: nexus-wiremock
+    ports:
+      - "8080:8080"
+    command: --verbose --global-response-templating
+    volumes:
+      - ./wiremock:/home/wiremock
+    healthcheck:
+      test: curl -f http://localhost:8080/__admin/mappings || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
