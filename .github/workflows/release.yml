@@ -38,8 +38,43 @@ jobs:
     needs: validate-tag
     uses: ./.github/workflows/ci.yml
 
+  publish-maven-central:
+    name: Publish to Maven Central
+    needs: [validate-tag, build-and-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Set release version
+        run: mvn versions:set -DnewVersion=${{ needs.validate-tag.outputs.version }} -DgenerateBackupPoms=false -B
+
+      - name: Build, sign, and verify
+        run: mvn clean verify -Prelease -DskipTests -B
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+      - name: Deploy to Maven Central
+        run: mvn deploy -Prelease -DskipTests -B
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
   package-and-release:
-    name: Package & Release
+    name: Package & GitHub Release
     needs: [validate-tag, build-and-test]
     runs-on: ubuntu-latest
     steps:
@@ -83,6 +118,17 @@ jobs:
           prerelease: ${{ needs.validate-tag.outputs.is_prerelease }}
           body: |
             ## kafka-connect-ai ${{ needs.validate-tag.outputs.tag }}
+
+            ### Maven Central
+
+            ```xml
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-connect</artifactId>
+                <version>${{ needs.validate-tag.outputs.version }}</version>
+                <classifier>all</classifier>
+            </dependency>
+            ```
 
             ### Installation
 
