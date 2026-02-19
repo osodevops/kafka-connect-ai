@@ -32,7 +32,8 @@ public class ParallelLlmExecutor {
             return processor.apply(subBatches.get(0));
         }
 
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        ExecutorService executor = Executors.newFixedThreadPool(maxConcurrent);
+        try {
             List<Future<SubBatchResult>> futures = new ArrayList<>();
 
             for (int i = 0; i < subBatches.size(); i++) {
@@ -77,6 +78,8 @@ public class ParallelLlmExecutor {
                 }
             }
             return allResults;
+        } finally {
+            executor.shutdown();
         }
     }
 

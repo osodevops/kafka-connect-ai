@@ -78,7 +78,7 @@ services:
       retries: 10
       start_period: 30s
     volumes:
-      - ../nexus-connect/target:/usr/share/java/nexus
+      - ../nexus-connect/target/nexus-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/nexus/nexus-connect.jar
 
   postgres:
     image: postgres:16-alpine
