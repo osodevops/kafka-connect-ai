@@ -42,7 +42,7 @@ services:
 
 ## Option 3: Build from Source
 
-Requires Java 21+ and Maven 3.9+.
+Requires Java 17+ and Maven 3.9+.
 
 ```bash
 git clone https://github.com/osodevops/nexus.git
@@ -66,3 +66,11 @@ curl -s http://localhost:8083/connector-plugins | jq '.[] | select(.class | star
 ```
 
 You should see `NexusSourceConnector` and `NexusSinkConnector` in the output.
+
+## Next Steps
+
+- [Quick Start Guide](quickstart.md) — get a connector running in 10 minutes
+- [Configuration Reference](configuration.md) — all config properties
+- [Use Cases](use-cases.md) — common integration patterns
+- [Deployment Guide](deployment.md) — production deployment options
+- [Troubleshooting](troubleshooting.md) — debugging and monitoring
