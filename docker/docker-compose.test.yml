@@ -22,7 +22,7 @@ services:
   wiremock:
     image: wiremock/wiremock:3.9.2
     hostname: wiremock
-    container_name: nexus-wiremock
+    container_name: kcai-wiremock
     ports:
       - "8080:8080"
     command: --verbose --global-response-templating

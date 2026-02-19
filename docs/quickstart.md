@@ -1,20 +1,20 @@
-# Nexus Quick Start Guide
+# kafka-connect-ai Quick Start Guide
 
-Get a Nexus connector running in under 10 minutes using Docker Compose.
+Get a kafka-connect-ai connector running in under 10 minutes using Docker Compose.
 
 ## Prerequisites
 
 - Docker and Docker Compose
 - An LLM API key (Anthropic or OpenAI)
-- The Nexus uber JAR (built or downloaded)
+- The kafka-connect-ai uber JAR (built or downloaded)
 
 ## 1. Build the Uber JAR
 
 ```bash
-mvn clean package -pl nexus-connect -am -DskipTests
+mvn clean package -pl kafka-connect-ai-connect -am -DskipTests
 ```
 
-The uber JAR is produced at `nexus-connect/target/nexus-connect-0.1.0-SNAPSHOT-all.jar`.
+The uber JAR is produced at `kafka-connect-ai-connect/target/kafka-connect-ai-connect-0.1.0-SNAPSHOT-all.jar`.
 
 ## 2. Start the Stack
 
@@ -31,7 +31,7 @@ This starts:
 |---------|------|---------|
 | Kafka (KRaft) | 9092 | Message broker |
 | Schema Registry | 8081 | Schema management |
-| Kafka Connect | 8083 | Connector runtime (with Nexus plugin) |
+| Kafka Connect | 8083 | Connector runtime (with kafka-connect-ai plugin) |
 | PostgreSQL | 5432 | Database for JDBC examples |
 | Redis Stack | 6379, 8001 | Semantic cache (optional) |
 
@@ -41,7 +41,7 @@ Wait for all services to become healthy:
 docker compose ps
 ```
 
-## 3. Verify Nexus is Loaded
+## 3. Verify kafka-connect-ai is Loaded
 
 ```bash
 curl -s http://localhost:8083/connector-plugins | python3 -m json.tool
@@ -52,12 +52,12 @@ You should see both connector classes:
 ```json
 [
   {
-    "class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+    "class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
     "type": "source",
     "version": "0.1.0"
   },
   {
-    "class": "sh.oso.nexus.connect.sink.NexusSinkConnector",
+    "class": "sh.oso.connect.ai.connect.sink.AiSinkConnector",
     "type": "sink",
     "version": "0.1.0"
   }
@@ -76,11 +76,11 @@ curl -X POST http://localhost:8083/connectors \
   -d '{
     "name": "weather-source",
     "config": {
-      "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+      "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
       "tasks.max": "1",
-      "nexus.source.adapter": "http",
-      "nexus.topic": "weather-events",
-      "nexus.batch.size": "50",
+      "connect.ai.source.adapter": "http",
+      "connect.ai.topic": "weather-events",
+      "connect.ai.batch.size": "50",
 
       "http.source.url": "https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.1&hourly=temperature_2m",
       "http.source.method": "GET",
@@ -103,7 +103,7 @@ Capture changes from a PostgreSQL table using incremental timestamp queries.
 
 ```bash
 # Create a sample table first
-docker exec nexus-postgres psql -U nexus -d nexus -c "
+docker exec kcai-postgres psql -U kcai -d kcai -c "
 CREATE TABLE orders (
   id SERIAL PRIMARY KEY,
   customer TEXT NOT NULL,
@@ -124,14 +124,14 @@ curl -X POST http://localhost:8083/connectors \
   -d '{
     "name": "orders-source",
     "config": {
-      "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+      "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
       "tasks.max": "1",
-      "nexus.source.adapter": "jdbc",
-      "nexus.topic": "order-events",
+      "connect.ai.source.adapter": "jdbc",
+      "connect.ai.topic": "order-events",
 
-      "jdbc.url": "jdbc:postgresql://postgres:5432/nexus",
-      "jdbc.user": "nexus",
-      "jdbc.password": "nexus",
+      "jdbc.url": "jdbc:postgresql://postgres:5432/kcai",
+      "jdbc.user": "kcai",
+      "jdbc.password": "kcai",
       "jdbc.table": "orders",
       "jdbc.query.mode": "timestamp",
       "jdbc.timestamp.column": "updated_at",
@@ -157,9 +157,9 @@ curl -X POST http://localhost:8083/connectors \
   -d '{
     "name": "webhook-sink",
     "config": {
-      "connector.class": "sh.oso.nexus.connect.sink.NexusSinkConnector",
+      "connector.class": "sh.oso.connect.ai.connect.sink.AiSinkConnector",
       "tasks.max": "1",
-      "nexus.sink.adapter": "http",
+      "connect.ai.sink.adapter": "http",
       "topics": "order-events",
 
       "http.sink.url": "https://webhook.site/your-unique-id",
@@ -192,7 +192,7 @@ curl -s http://localhost:8083/connectors/weather-source/config | python3 -m json
 ## 7. Consume Transformed Records
 
 ```bash
-docker exec nexus-kafka kafka-console-consumer \
+docker exec kcai-kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
   --topic weather-events \
   --from-beginning \

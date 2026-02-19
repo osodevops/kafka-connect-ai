@@ -49,44 +49,44 @@ jobs:
       - name: Download uber JAR
         uses: actions/download-artifact@v4
         with:
-          name: nexus-connect-uber-jar
+          name: kafka-connect-ai-uber-jar
           path: staging/
 
       - name: Prepare release archive
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
-          DIST_DIR="nexus-connect-${VERSION}"
+          DIST_DIR="kafka-connect-ai-${VERSION}"
           mkdir -p "${DIST_DIR}"
-          cp staging/nexus-connect-*-all.jar "${DIST_DIR}/"
+          cp staging/kafka-connect-ai-connect-*-all.jar "${DIST_DIR}/"
           cp LICENSE "${DIST_DIR}/" 2>/dev/null || echo "No LICENSE file found" > "${DIST_DIR}/LICENSE"
-          zip -r "nexus-connect-${VERSION}.zip" "${DIST_DIR}"
+          zip -r "kafka-connect-ai-${VERSION}.zip" "${DIST_DIR}"
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
           path: staging/
-          output-file: nexus-connect-${{ needs.validate-tag.outputs.version }}.sbom.spdx.json
+          output-file: kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.sbom.spdx.json
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: nexus-connect-${{ needs.validate-tag.outputs.version }}.zip
+          subject-path: kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.zip
 
       - name: Create GitHub Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: nexus-connect-${{ needs.validate-tag.outputs.version }}.zip
-          asset_name: nexus-connect-${{ needs.validate-tag.outputs.version }}.zip
+          file: kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.zip
+          asset_name: kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.zip
           tag: ${{ needs.validate-tag.outputs.tag }}
-          release_name: Nexus ${{ needs.validate-tag.outputs.tag }}
+          release_name: kafka-connect-ai ${{ needs.validate-tag.outputs.tag }}
           prerelease: ${{ needs.validate-tag.outputs.is_prerelease }}
           body: |
-            ## Nexus ${{ needs.validate-tag.outputs.tag }}
+            ## kafka-connect-ai ${{ needs.validate-tag.outputs.tag }}
 
             ### Installation
 
-            1. Download `nexus-connect-${{ needs.validate-tag.outputs.version }}.zip`
+            1. Download `kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.zip`
             2. Extract the ZIP
             3. Copy the uber JAR into a directory on your Kafka Connect `plugin.path`
             4. Restart your Connect workers
@@ -94,15 +94,15 @@ jobs:
             ### Docker
 
             ```bash
-            docker pull ghcr.io/osodevops/nexus-connect:${{ needs.validate-tag.outputs.version }}
+            docker pull ghcr.io/osodevops/kafka-connect-ai:${{ needs.validate-tag.outputs.version }}
             ```
 
       - name: Upload SBOM to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: nexus-connect-${{ needs.validate-tag.outputs.version }}.sbom.spdx.json
-          asset_name: nexus-connect-${{ needs.validate-tag.outputs.version }}.sbom.spdx.json
+          file: kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.sbom.spdx.json
+          asset_name: kafka-connect-ai-${{ needs.validate-tag.outputs.version }}.sbom.spdx.json
           tag: ${{ needs.validate-tag.outputs.tag }}
 
   docker:
@@ -116,7 +116,7 @@ jobs:
       - name: Download uber JAR
         uses: actions/download-artifact@v4
         with:
-          name: nexus-connect-uber-jar
+          name: kafka-connect-ai-uber-jar
           path: docker/
 
       - name: Set up Docker Buildx
@@ -133,7 +133,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/osodevops/nexus-connect
+          images: ghcr.io/osodevops/kafka-connect-ai
           tags: |
             type=semver,pattern={{version}},value=${{ needs.validate-tag.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate-tag.outputs.tag }}

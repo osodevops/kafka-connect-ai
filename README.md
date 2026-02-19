@@ -1,32 +1,32 @@
 <p align="center">
-  <h1 align="center">Nexus</h1>
+  <h1 align="center">kafka-connect-ai</h1>
   <p align="center">
     AI-powered universal connector for Apache Kafka Connect
   </p>
 </p>
 
 <p align="center">
-  <a href="https://github.com/osodevops/nexus/actions/workflows/ci.yml">
-    <img src="https://github.com/osodevops/nexus/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+  <a href="https://github.com/osodevops/kafka-connect-ai/actions/workflows/ci.yml">
+    <img src="https://github.com/osodevops/kafka-connect-ai/actions/workflows/ci.yml/badge.svg" alt="CI Status">
   </a>
-  <a href="https://github.com/osodevops/nexus/blob/main/LICENSE">
+  <a href="https://github.com/osodevops/kafka-connect-ai/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0">
   </a>
-  <a href="https://github.com/osodevops/nexus/releases">
-    <img src="https://img.shields.io/github/v/release/osodevops/nexus" alt="Release">
+  <a href="https://github.com/osodevops/kafka-connect-ai/releases">
+    <img src="https://img.shields.io/github/v/release/osodevops/kafka-connect-ai" alt="Release">
   </a>
 </p>
 
 ---
 
-**Nexus** is a Kafka Connect connector that uses LLMs to transform data between any source and any sink. Instead of writing custom connectors for every integration, you deploy a single uber JAR and describe transformations in natural language. Nexus fetches data from HTTP APIs, databases, or other Kafka clusters, passes records through an AI transformation pipeline, and writes the results to Kafka topics or external systems.
+**kafka-connect-ai** is a Kafka Connect connector that uses LLMs to transform data between any source and any sink. Instead of writing custom connectors for every integration, you deploy a single uber JAR and describe transformations in natural language. It fetches data from HTTP APIs, databases, or other Kafka clusters, passes records through an AI transformation pipeline, and writes the results to Kafka topics or external systems.
 
 ## Features
 
 - **Universal adapters** — HTTP, JDBC (PostgreSQL), and Kafka-to-Kafka source adapters; HTTP and JDBC sink adapters. Pluggable via SPI.
 - **LLM-powered transformation** — Describe your transformation in plain English. Supports Anthropic (Claude) and OpenAI models.
-- **Schema enforcement** — Define a JSON Schema target and Nexus validates every record the LLM produces. Malformed output is retried automatically.
-- **Schema discovery** — No schema? Nexus infers one from sample data using the LLM at startup.
+- **Schema enforcement** — Define a JSON Schema target and kafka-connect-ai validates every record the LLM produces. Malformed output is retried automatically.
+- **Schema discovery** — No schema? kafka-connect-ai infers one from sample data using the LLM at startup.
 - **4-tier model routing** — Automatically routes records to the cheapest model that can handle them: deterministic transforms (free), fast model, default model, or powerful model.
 - **Semantic caching** — Redis-backed vector similarity cache deduplicates LLM calls for similar records, cutting cost and latency.
 - **Batch processing** — Dual-trigger accumulator (size + time) with parallel sub-batch execution across multiple concurrent LLM calls.
@@ -43,10 +43,10 @@
 ### Download from GitHub Releases
 
 ```bash
-curl -L https://github.com/osodevops/nexus/releases/latest/download/nexus-connect.zip \
-  -o nexus-connect.zip
-unzip nexus-connect.zip
-cp nexus-connect-*/nexus-connect-*-all.jar /path/to/kafka-connect/plugins/
+curl -L https://github.com/osodevops/kafka-connect-ai/releases/latest/download/kafka-connect-ai.zip \
+  -o kafka-connect-ai.zip
+unzip kafka-connect-ai.zip
+cp kafka-connect-ai-*/kafka-connect-ai-connect-*-all.jar /path/to/kafka-connect/plugins/
 ```
 
 Restart your Connect workers. See the [Installation Guide](docs/INSTALL.md) for all options.
@@ -54,7 +54,7 @@ Restart your Connect workers. See the [Installation Guide](docs/INSTALL.md) for 
 ### Docker
 
 ```bash
-docker pull ghcr.io/osodevops/nexus-connect:latest
+docker pull ghcr.io/osodevops/kafka-connect-ai-connect:latest
 ```
 
 ### Build from Source
@@ -62,28 +62,28 @@ docker pull ghcr.io/osodevops/nexus-connect:latest
 Requires Java 17+ and Maven 3.9+.
 
 ```bash
-git clone https://github.com/osodevops/nexus.git
-cd nexus
-mvn clean package -pl nexus-connect -am -DskipTests
+git clone https://github.com/osodevops/kafka-connect-ai.git
+cd kafka-connect-ai
+mvn clean package -pl kafka-connect-ai-connect -am -DskipTests
 ```
 
-The uber JAR is at `nexus-connect/target/nexus-connect-*-all.jar`.
+The uber JAR is at `kafka-connect-ai-connect/target/kafka-connect-ai-connect-*-all.jar`.
 
 ## Quick Start
 
 ### 1. Start the Stack
 
 ```bash
-mvn clean package -pl nexus-connect -am -DskipTests
+mvn clean package -pl kafka-connect-ai-connect -am -DskipTests
 cd docker && docker compose up -d
 ```
 
-This starts Kafka (KRaft), Schema Registry, Kafka Connect with Nexus, PostgreSQL, and Redis.
+This starts Kafka (KRaft), Schema Registry, Kafka Connect with kafka-connect-ai, PostgreSQL, and Redis.
 
-### 2. Verify Nexus is Loaded
+### 2. Verify kafka-connect-ai is Loaded
 
 ```bash
-curl -s http://localhost:8083/connector-plugins | grep nexus
+curl -s http://localhost:8083/connector-plugins | grep ai
 ```
 
 ### 3. Deploy a Connector
@@ -96,10 +96,10 @@ curl -X POST http://localhost:8083/connectors \
   -d '{
     "name": "api-source",
     "config": {
-      "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+      "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
       "tasks.max": "1",
-      "nexus.source.adapter": "http",
-      "nexus.topic": "events",
+      "connect.ai.source.adapter": "http",
+      "connect.ai.topic": "events",
       "http.source.url": "https://api.example.com/v1/data",
       "http.source.poll.interval.ms": "60000",
       "ai.llm.provider": "anthropic",
@@ -118,13 +118,13 @@ curl -X POST http://localhost:8083/connectors \
   -d '{
     "name": "db-source",
     "config": {
-      "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+      "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
       "tasks.max": "1",
-      "nexus.source.adapter": "jdbc",
-      "nexus.topic": "db-events",
-      "jdbc.url": "jdbc:postgresql://postgres:5432/nexus",
-      "jdbc.user": "nexus",
-      "jdbc.password": "nexus",
+      "connect.ai.source.adapter": "jdbc",
+      "connect.ai.topic": "db-events",
+      "jdbc.url": "jdbc:postgresql://postgres:5432/kcai",
+      "jdbc.user": "kcai",
+      "jdbc.password": "kcai",
       "jdbc.table": "orders",
       "jdbc.query.mode": "timestamp",
       "jdbc.timestamp.column": "updated_at",
@@ -143,10 +143,10 @@ curl -X POST http://localhost:8083/connectors \
   -d '{
     "name": "k2k-bridge",
     "config": {
-      "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+      "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
       "tasks.max": "1",
-      "nexus.source.adapter": "kafka",
-      "nexus.topic": "normalised-events",
+      "connect.ai.source.adapter": "kafka",
+      "connect.ai.topic": "normalised-events",
       "kafka.source.bootstrap.servers": "upstream-kafka:9092",
       "kafka.source.topics": "raw-events",
       "ai.llm.provider": "anthropic",
@@ -158,7 +158,7 @@ curl -X POST http://localhost:8083/connectors \
 
 See the [Quick Start Guide](docs/quickstart.md) for complete examples including sink connectors.
 
-## Why Nexus?
+## Why kafka-connect-ai?
 
 ### The Problem
 
@@ -166,7 +166,7 @@ Every new data integration requires a custom Kafka Connect connector — or cust
 
 ### The Solution
 
-Nexus replaces per-integration connector code with a single, universal connector where transformations are described in natural language:
+kafka-connect-ai replaces per-integration connector code with a single, universal connector where transformations are described in natural language:
 
 1. **One connector for everything** — HTTP APIs, databases, Kafka clusters. Source and sink.
 2. **Natural language transforms** — Describe what you want in a system prompt. No code.
@@ -175,7 +175,7 @@ Nexus replaces per-integration connector code with a single, universal connector
 
 ### Comparison
 
-| Feature | Nexus | Custom Connector | Debezium | MirrorMaker 2 |
+| Feature | kafka-connect-ai | Custom Connector | Debezium | MirrorMaker 2 |
 |---------|-------|------------------|----------|----------------|
 | Sources | HTTP, JDBC, Kafka | One per connector | JDBC (CDC) | Kafka only |
 | Sinks | HTTP, JDBC | One per connector | N/A | Kafka only |
@@ -185,18 +185,18 @@ Nexus replaces per-integration connector code with a single, universal connector
 | Multi-model routing | 4-tier automatic | N/A | N/A | N/A |
 | Semantic caching | Redis vector store | N/A | N/A | N/A |
 
-### When NOT to Use Nexus
+### When NOT to Use kafka-connect-ai
 
 - **Sub-millisecond latency** — LLM calls add latency (100ms–5s). Use native connectors for latency-critical paths.
-- **Deterministic-only transforms** — If your transforms are purely structural (renames, type casts), use Kafka Connect SMTs instead. Nexus can do this via Tier 0 deterministic patterns, but SMTs are simpler.
-- **Binary data** — Nexus works with JSON. For Avro, Protobuf, or binary payloads, use specialised connectors.
-- **Full CDC with WAL** — For database replication with transaction ordering, Debezium is purpose-built. Nexus uses polling queries.
+- **Deterministic-only transforms** — If your transforms are purely structural (renames, type casts), use Kafka Connect SMTs instead. kafka-connect-ai can do this via Tier 0 deterministic patterns, but SMTs are simpler.
+- **Binary data** — kafka-connect-ai works with JSON. For Avro, Protobuf, or binary payloads, use specialised connectors.
+- **Full CDC with WAL** — For database replication with transaction ordering, Debezium is purpose-built. kafka-connect-ai uses polling queries.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          Nexus Connect                                  │
+│                       kafka-connect-ai                                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │   ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐ │
@@ -252,7 +252,7 @@ Nexus replaces per-integration connector code with a single, universal connector
 
 ## Cost Optimisation
 
-Nexus minimises LLM spend through four layers:
+kafka-connect-ai minimises LLM spend through four layers:
 
 | Layer | Mechanism | Savings |
 |-------|-----------|---------|
@@ -277,43 +277,43 @@ Enable all layers:
 ## Project Structure
 
 ```
-nexus/
-├── nexus-api/                  # Core interfaces and models (no dependencies)
+kafka-connect-ai/
+├── kafka-connect-ai-api/                  # Core interfaces and models (no dependencies)
 │   └── src/main/java/
-│       └── sh/oso/nexus/api/
+│       └── sh/oso/kafka-connect-ai/api/
 │           ├── adapter/        # SourceAdapter, SinkAdapter interfaces
 │           ├── config/         # Shared config constants
 │           ├── error/          # RetryableException, NonRetryableException
 │           ├── model/          # RawRecord, TransformedRecord, SourceOffset
 │           └── pipeline/       # AgentPipeline interface
-├── nexus-adapter-http/         # HTTP source + sink adapter
+├── kafka-connect-ai-adapter-http/         # HTTP source + sink adapter
 │   └── src/main/java/
-│       └── sh/oso/nexus/adapter/http/
+│       └── sh/oso/kafka-connect-ai/adapter/http/
 │           ├── auth/           # 5 auth strategies (Basic, Bearer, API Key, OAuth2, None)
 │           ├── pagination/     # 5 pagination strategies (Cursor, Offset, Page, Link, None)
 │           └── ratelimit/      # Token-bucket rate limiter
-├── nexus-adapter-jdbc/         # JDBC source + sink adapter (HikariCP)
+├── kafka-connect-ai-adapter-jdbc/         # JDBC source + sink adapter (HikariCP)
 │   └── src/main/java/
-│       └── sh/oso/nexus/adapter/jdbc/
+│       └── sh/oso/kafka-connect-ai/adapter/jdbc/
 │           ├── query/          # QueryBuilder, 4 query modes
 │           └── sql/            # SqlGenerator, upsert, auto-DDL
-├── nexus-adapter-kafka/        # Kafka-to-Kafka source adapter
+├── kafka-connect-ai-adapter-kafka/        # Kafka-to-Kafka source adapter
 │   └── src/main/java/
-│       └── sh/oso/nexus/adapter/kafka/
-├── nexus-connect/              # Connectors, pipeline, LLM, cache, metrics, uber JAR
+│       └── sh/oso/kafka-connect-ai/adapter/kafka/
+├── kafka-connect-ai-connect/              # Connectors, pipeline, LLM, cache, metrics, uber JAR
 │   └── src/main/java/
-│       └── sh/oso/nexus/connect/
+│       └── sh/oso/kafka-connect-ai/connect/
 │           ├── cache/          # SemanticCache, EmbeddingClient
-│           ├── config/         # NexusSourceConfig, NexusSinkConfig
+│           ├── config/         # AiSourceConfig, AiSinkConfig
 │           ├── llm/            # AnthropicClient, OpenAiClient, LlmClientFactory
-│           ├── metrics/        # NexusMetrics (16 JMX metrics), LogContext
+│           ├── metrics/        # AiConnectMetrics (16 JMX metrics), LogContext
 │           ├── pipeline/       # BasicAgentPipeline, BatchAccumulator, ModelRouter,
 │           │                   # ParallelLlmExecutor, SchemaEnforcer, SchemaDiscoveryAgent,
 │           │                   # DeterministicTransformer
-│           ├── sink/           # NexusSinkConnector, NexusSinkTask
-│           ├── source/         # NexusSourceConnector, NexusSourceTask
+│           ├── sink/           # AiSinkConnector, AiSinkTask
+│           ├── source/         # AiSourceConnector, AiSourceTask
 │           └── spi/            # AdapterRegistry (ServiceLoader discovery)
-├── nexus-integration-tests/    # End-to-end tests (Testcontainers, WireMock, PostgreSQL, Redis)
+├── kafka-connect-ai-integration-tests/    # End-to-end tests (Testcontainers, WireMock, PostgreSQL, Redis)
 ├── docker/                     # Dockerfile + docker-compose.yml
 └── docs/                       # Documentation
 ```
@@ -326,27 +326,27 @@ nexus/
 
 ```bash
 # Clone
-git clone https://github.com/osodevops/nexus.git
-cd nexus
+git clone https://github.com/osodevops/kafka-connect-ai.git
+cd kafka-connect-ai
 
 # Build all modules
 mvn clean package -DskipTests
 
 # Run unit tests (143 tests)
-mvn test -pl nexus-api,nexus-adapter-http,nexus-adapter-jdbc,nexus-adapter-kafka,nexus-connect
+mvn test -pl kafka-connect-ai-api,kafka-connect-ai-adapter-http,kafka-connect-ai-adapter-jdbc,kafka-connect-ai-adapter-kafka,kafka-connect-ai-connect
 
 # Run integration tests (27 tests, requires Docker)
-mvn verify -pl nexus-integration-tests
+mvn verify -pl kafka-connect-ai-integration-tests
 ```
 
 ## Running Tests
 
 ```bash
 # Unit tests only
-mvn test -pl nexus-api,nexus-adapter-http,nexus-adapter-jdbc,nexus-adapter-kafka,nexus-connect
+mvn test -pl kafka-connect-ai-api,kafka-connect-ai-adapter-http,kafka-connect-ai-adapter-jdbc,kafka-connect-ai-adapter-kafka,kafka-connect-ai-connect
 
 # Integration tests (Testcontainers — requires Docker)
-mvn verify -pl nexus-integration-tests -am
+mvn verify -pl kafka-connect-ai-integration-tests -am
 
 # All tests
 mvn verify
@@ -362,7 +362,7 @@ mvn verify
 
 [OSO](https://oso.sh) engineers are solely focused on deploying, operating, and maintaining Apache Kafka platforms. If you need SLA-backed support or advanced features for compliance and security, our **Enterprise Edition** extends the core tool with capabilities designed for large-scale, regulated environments.
 
-### Nexus: Enterprise Edition
+### kafka-connect-ai: Enterprise Edition
 
 | Feature Category | Enterprise Capability |
 |------------------|----------------------|
@@ -379,7 +379,7 @@ mvn verify
 | | Advanced Metrics & Dashboard (throughput, latency, cost drill-down UI) |
 | **Support** | 24/7 SLA-Backed Support & dedicated Kafka consulting |
 
-Need help resolving operational issues or planning an AI-powered data integration strategy? Our team of experts can help you design, deploy, and operate Nexus at scale.
+Need help resolving operational issues or planning an AI-powered data integration strategy? Our team of experts can help you design, deploy, and operate kafka-connect-ai at scale.
 
 **[Talk with an expert today](https://oso.sh/contact/)** or email us at **enquiries@oso.sh**.
 
@@ -387,9 +387,9 @@ Need help resolving operational issues or planning an AI-powered data integratio
 
 We welcome contributions of all kinds!
 
-- **Report Bugs:** Found a bug? Open an [issue on GitHub](https://github.com/osodevops/nexus/issues).
-- **Suggest Features:** Have an idea? [Request a feature](https://github.com/osodevops/nexus/issues/new).
-- **Contribute Code:** Check out our [good first issues](https://github.com/osodevops/nexus/labels/good%20first%20issue) for beginner-friendly tasks.
+- **Report Bugs:** Found a bug? Open an [issue on GitHub](https://github.com/osodevops/kafka-connect-ai/issues).
+- **Suggest Features:** Have an idea? [Request a feature](https://github.com/osodevops/kafka-connect-ai/issues/new).
+- **Contribute Code:** Check out our [good first issues](https://github.com/osodevops/kafka-connect-ai/labels/good%20first%20issue) for beginner-friendly tasks.
 - **Improve Docs:** Help us improve the documentation by submitting pull requests.
 
 ### Development Workflow
@@ -402,7 +402,7 @@ We welcome contributions of all kinds!
 
 ## License
 
-Nexus is licensed under the [Apache License 2.0](LICENSE).
+kafka-connect-ai is licensed under the [Apache License 2.0](LICENSE).
 
 ## Acknowledgments
 

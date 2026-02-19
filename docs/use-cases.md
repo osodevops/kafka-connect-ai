@@ -1,6 +1,6 @@
-# Nexus Use Cases
+# kafka-connect-ai Use Cases
 
-Common integration patterns and real-world scenarios for the Nexus connector.
+Common integration patterns and real-world scenarios for the kafka-connect-ai connector.
 
 ---
 
@@ -14,12 +14,12 @@ Common integration patterns and real-world scenarios for the Nexus connector.
 {
   "name": "github-events-source",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
     "tasks.max": "1",
-    "nexus.source.adapter": "http",
-    "nexus.topic": "github-events",
+    "connect.ai.source.adapter": "http",
+    "connect.ai.topic": "github-events",
 
-    "http.source.url": "https://api.github.com/repos/osodevops/nexus/events",
+    "http.source.url": "https://api.github.com/repos/osodevops/kafka-connect-ai/events",
     "http.source.method": "GET",
     "http.source.headers": "Accept: application/vnd.github.v3+json",
     "http.source.poll.interval.ms": "120000",
@@ -50,10 +50,10 @@ Common integration patterns and real-world scenarios for the Nexus connector.
 {
   "name": "customer-cdc",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
     "tasks.max": "1",
-    "nexus.source.adapter": "jdbc",
-    "nexus.topic": "customer-events",
+    "connect.ai.source.adapter": "jdbc",
+    "connect.ai.topic": "customer-events",
 
     "jdbc.url": "jdbc:postgresql://db-primary:5432/app",
     "jdbc.user": "cdc_reader",
@@ -86,14 +86,14 @@ Common integration patterns and real-world scenarios for the Nexus connector.
 {
   "name": "legacy-bridge",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
     "tasks.max": "2",
-    "nexus.source.adapter": "kafka",
-    "nexus.topic": "normalised-events",
+    "connect.ai.source.adapter": "kafka",
+    "connect.ai.topic": "normalised-events",
 
     "kafka.source.bootstrap.servers": "legacy-kafka-1:9092,legacy-kafka-2:9092",
     "kafka.source.topics": "raw-events-v1,raw-events-v2",
-    "kafka.source.group.id": "nexus-bridge",
+    "kafka.source.group.id": "connect-ai-bridge",
     "kafka.source.consumer.auto.offset.reset": "earliest",
 
     "ai.llm.provider": "openai",
@@ -119,9 +119,9 @@ Common integration patterns and real-world scenarios for the Nexus connector.
 {
   "name": "slack-webhook-sink",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.sink.NexusSinkConnector",
+    "connector.class": "sh.oso.connect.ai.connect.sink.AiSinkConnector",
     "tasks.max": "1",
-    "nexus.sink.adapter": "http",
+    "connect.ai.sink.adapter": "http",
     "topics": "alert-events",
 
     "http.sink.url": "https://hooks.slack.com/services/T00/B00/xxxx",
@@ -153,9 +153,9 @@ Common integration patterns and real-world scenarios for the Nexus connector.
 {
   "name": "orders-materialise",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.sink.NexusSinkConnector",
+    "connector.class": "sh.oso.connect.ai.connect.sink.AiSinkConnector",
     "tasks.max": "1",
-    "nexus.sink.adapter": "jdbc",
+    "connect.ai.sink.adapter": "jdbc",
     "topics": "order-events",
 
     "jdbc.url": "jdbc:postgresql://analytics-db:5432/warehouse",
@@ -190,9 +190,9 @@ Deploy multiple source connectors writing to the same topic:
 curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json" -d '{
   "name": "weather-ingest",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
-    "nexus.source.adapter": "http",
-    "nexus.topic": "environmental-events",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
+    "connect.ai.source.adapter": "http",
+    "connect.ai.topic": "environmental-events",
     "http.source.url": "https://api.weather.example.com/current",
     "http.source.poll.interval.ms": "300000",
     "ai.llm.provider": "anthropic",
@@ -205,9 +205,9 @@ curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json
 curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json" -d '{
   "name": "airquality-ingest",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
-    "nexus.source.adapter": "http",
-    "nexus.topic": "environmental-events",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
+    "connect.ai.source.adapter": "http",
+    "connect.ai.topic": "environmental-events",
     "http.source.url": "https://api.airquality.example.com/latest",
     "http.source.poll.interval.ms": "600000",
     "ai.llm.provider": "anthropic",
@@ -229,11 +229,11 @@ curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json
 {
   "name": "high-throughput-ingest",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
     "tasks.max": "4",
-    "nexus.source.adapter": "jdbc",
-    "nexus.topic": "processed-records",
-    "nexus.batch.size": "200",
+    "connect.ai.source.adapter": "jdbc",
+    "connect.ai.topic": "processed-records",
+    "connect.ai.batch.size": "200",
 
     "jdbc.url": "jdbc:postgresql://db:5432/source",
     "jdbc.table": "events",
@@ -282,9 +282,9 @@ curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json
 {
   "name": "unknown-api",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
-    "nexus.source.adapter": "http",
-    "nexus.topic": "discovered-events",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
+    "connect.ai.source.adapter": "http",
+    "connect.ai.topic": "discovered-events",
 
     "http.source.url": "https://api.undocumented.example.com/data",
     "http.source.poll.interval.ms": "60000",
@@ -310,9 +310,9 @@ The `ai.schema.discovery=true` flag triggers the SchemaDiscoveryAgent at startup
 {
   "name": "salesforce-ingest",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
-    "nexus.source.adapter": "http",
-    "nexus.topic": "crm-records",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
+    "connect.ai.source.adapter": "http",
+    "connect.ai.topic": "crm-records",
 
     "http.source.url": "https://api.crm.example.com/v2/contacts",
     "http.source.method": "GET",
@@ -321,7 +321,7 @@ The `ai.schema.discovery=true` flag triggers the SchemaDiscoveryAgent at startup
 
     "http.auth.type": "oauth2",
     "http.auth.oauth2.token.url": "https://auth.crm.example.com/oauth/token",
-    "http.auth.oauth2.client.id": "nexus-integration",
+    "http.auth.oauth2.client.id": "connect-ai-integration",
     "http.auth.oauth2.client.secret": "...",
     "http.auth.oauth2.scope": "contacts:read",
 

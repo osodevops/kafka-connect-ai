@@ -1,14 +1,14 @@
-# Nexus Configuration Reference
+# kafka-connect-ai Configuration Reference
 
-Complete reference for all Nexus connector configuration properties.
+Complete reference for all kafka-connect-ai connector configuration properties.
 
 ## Overview
 
-Nexus configuration is passed as key-value pairs when creating a connector via the Kafka Connect REST API. Properties are grouped by function:
+kafka-connect-ai configuration is passed as key-value pairs when creating a connector via the Kafka Connect REST API. Properties are grouped by function:
 
 | Prefix | Domain |
 |--------|--------|
-| `nexus.*` | Core connector (adapter type, topic, batch size, DLQ) |
+| `connect.ai.*` | Core connector (adapter type, topic, batch size, DLQ) |
 | `ai.llm.*` | LLM provider, model, API key, temperature, tokens |
 | `ai.agent.*` | Agent behaviour (prompts, schema, caching, retries) |
 | `ai.batch.*` | Batch accumulator and parallel execution |
@@ -28,19 +28,19 @@ Nexus configuration is passed as key-value pairs when creating a connector via t
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `nexus.source.adapter` | String | — | Yes | Source adapter type: `http`, `jdbc`, or `kafka` |
-| `nexus.topic` | String | — | Yes | Target Kafka topic for produced records |
-| `nexus.batch.size` | Int | `100` | No | Maximum records per fetch batch |
-| `nexus.dlq.topic` | String | `""` | No | Dead-letter queue topic for records that fail transformation |
+| `connect.ai.source.adapter` | String | — | Yes | Source adapter type: `http`, `jdbc`, or `kafka` |
+| `connect.ai.topic` | String | — | Yes | Target Kafka topic for produced records |
+| `connect.ai.batch.size` | Int | `100` | No | Maximum records per fetch batch |
+| `connect.ai.dlq.topic` | String | `""` | No | Dead-letter queue topic for records that fail transformation |
 | `tasks.max` | Int | `1` | No | Number of parallel tasks (standard Kafka Connect property) |
 
 ### Sink Connector
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `nexus.sink.adapter` | String | — | Yes | Sink adapter type: `http` or `jdbc` |
+| `connect.ai.sink.adapter` | String | — | Yes | Sink adapter type: `http` or `jdbc` |
 | `topics` | String | — | Yes | Kafka topic(s) to consume from (standard Kafka Connect property) |
-| `nexus.dlq.topic` | String | `""` | No | Dead-letter queue topic for failed records |
+| `connect.ai.dlq.topic` | String | `""` | No | Dead-letter queue topic for failed records |
 | `tasks.max` | Int | `1` | No | Number of parallel tasks |
 
 ---
@@ -130,7 +130,7 @@ Redis-backed vector similarity cache for LLM call deduplication. Requires Redis 
 
 ### HTTP Source
 
-Applicable when `nexus.source.adapter=http`.
+Applicable when `connect.ai.source.adapter=http`.
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
@@ -144,7 +144,7 @@ Applicable when `nexus.source.adapter=http`.
 
 ### HTTP Sink
 
-Applicable when `nexus.sink.adapter=http`.
+Applicable when `connect.ai.sink.adapter=http`.
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
@@ -235,7 +235,7 @@ Follows RFC 5988 `Link: <url>; rel="next"` headers automatically. No additional 
 
 ### JDBC Source
 
-Applicable when `nexus.source.adapter=jdbc`.
+Applicable when `connect.ai.source.adapter=jdbc`.
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
@@ -262,7 +262,7 @@ Applicable when `nexus.source.adapter=jdbc`.
 
 ### JDBC Sink
 
-Applicable when `nexus.sink.adapter=jdbc`.
+Applicable when `connect.ai.sink.adapter=jdbc`.
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
@@ -280,14 +280,14 @@ Applicable when `nexus.sink.adapter=jdbc`.
 
 ## Kafka-to-Kafka Adapter Properties
 
-Applicable when `nexus.source.adapter=kafka`. Uses an embedded KafkaConsumer to read from an upstream cluster.
+Applicable when `connect.ai.source.adapter=kafka`. Uses an embedded KafkaConsumer to read from an upstream cluster.
 
 | Property | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
 | `kafka.source.bootstrap.servers` | String | `""` | Yes | Bootstrap servers for the upstream Kafka cluster |
 | `kafka.source.topics` | String | `""` | Yes* | Comma-separated source topics (*or use `topics.regex`) |
 | `kafka.source.topics.regex` | String | `""` | No | Regex for topic subscription (alternative to explicit list) |
-| `kafka.source.group.id` | String | `"nexus-k2k-consumer"` | No | Consumer group ID |
+| `kafka.source.group.id` | String | `"connect-ai-k2k-consumer"` | No | Consumer group ID |
 | `kafka.source.poll.timeout.ms` | Long | `1000` | No | Consumer poll timeout in ms |
 | `kafka.source.security.protocol` | String | `"PLAINTEXT"` | No | Security protocol: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL` |
 
@@ -311,13 +311,13 @@ Any property prefixed with `kafka.source.consumer.` is stripped of the prefix an
 {
   "name": "api-ingest",
   "config": {
-    "connector.class": "sh.oso.nexus.connect.source.NexusSourceConnector",
+    "connector.class": "sh.oso.connect.ai.connect.source.AiSourceConnector",
     "tasks.max": "2",
 
-    "nexus.source.adapter": "http",
-    "nexus.topic": "api-events",
-    "nexus.batch.size": "100",
-    "nexus.dlq.topic": "api-events-dlq",
+    "connect.ai.source.adapter": "http",
+    "connect.ai.topic": "api-events",
+    "connect.ai.batch.size": "100",
+    "connect.ai.dlq.topic": "api-events-dlq",
 
     "http.source.url": "https://api.example.com/v1/events",
     "http.source.method": "GET",

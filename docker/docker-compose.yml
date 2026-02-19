@@ -2,7 +2,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.8.0
     hostname: kafka
-    container_name: nexus-kafka
+    container_name: kcai-kafka
     ports:
       - "9092:9092"
     environment:
@@ -17,7 +17,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      CLUSTER_ID: nexus-dev-cluster-001
+      CLUSTER_ID: kcai-dev-cluster-001
     healthcheck:
       test: kafka-broker-api-versions --bootstrap-server localhost:9092
       interval: 10s
@@ -27,7 +27,7 @@ services:
   schema-registry:
     image: confluentinc/cp-schema-registry:7.8.0
     hostname: schema-registry
-    container_name: nexus-schema-registry
+    container_name: kcai-schema-registry
     depends_on:
       kafka:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
       context: .
       dockerfile: Dockerfile
     hostname: connect
-    container_name: nexus-connect
+    container_name: kcai-connect
     depends_on:
       kafka:
         condition: service_healthy
@@ -60,12 +60,12 @@ services:
       CONNECT_BOOTSTRAP_SERVERS: kafka:29092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
       CONNECT_REST_PORT: 8083
-      CONNECT_GROUP_ID: nexus-connect-group
-      CONNECT_CONFIG_STORAGE_TOPIC: _nexus-configs
+      CONNECT_GROUP_ID: kcai-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: _kcai-configs
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_OFFSET_STORAGE_TOPIC: _nexus-offsets
+      CONNECT_OFFSET_STORAGE_TOPIC: _kcai-offsets
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_STATUS_STORAGE_TOPIC: _nexus-status
+      CONNECT_STATUS_STORAGE_TOPIC: _kcai-status
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
@@ -78,20 +78,20 @@ services:
       retries: 10
       start_period: 30s
     volumes:
-      - ../nexus-connect/target/nexus-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/nexus/nexus-connect.jar
+      - ../kafka-connect-ai-connect/target/kafka-connect-ai-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/kafka-connect-ai/kafka-connect-ai-connect.jar
 
   postgres:
     image: postgres:16-alpine
     hostname: postgres
-    container_name: nexus-postgres
+    container_name: kcai-postgres
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: nexus
-      POSTGRES_USER: nexus
-      POSTGRES_PASSWORD: nexus
+      POSTGRES_DB: kcai
+      POSTGRES_USER: kcai
+      POSTGRES_PASSWORD: kcai
     healthcheck:
-      test: pg_isready -U nexus
+      test: pg_isready -U kcai
       interval: 10s
       timeout: 5s
       retries: 5
@@ -99,7 +99,7 @@ services:
   redis:
     image: redis/redis-stack:7.4.0-v2
     hostname: redis
-    container_name: nexus-redis
+    container_name: kcai-redis
     ports:
       - "6379:6379"
       - "8001:8001"

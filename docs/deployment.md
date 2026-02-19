@@ -1,6 +1,6 @@
-# Nexus Deployment Guide
+# kafka-connect-ai Deployment Guide
 
-Production deployment options for the Nexus Kafka Connect connector.
+Production deployment options for the kafka-connect-ai Kafka Connect connector.
 
 ---
 
@@ -26,7 +26,7 @@ The project includes a ready-to-use `docker/docker-compose.yml` for local develo
 |---------|-------|------|---------|
 | kafka | confluentinc/cp-kafka:7.8.0 | 9092 | Kafka broker (KRaft mode) |
 | schema-registry | confluentinc/cp-schema-registry:7.8.0 | 8081 | Schema Registry |
-| connect | Custom (Nexus) | 8083 | Kafka Connect + Nexus plugin |
+| connect | Custom (kafka-connect-ai) | 8083 | Kafka Connect + kafka-connect-ai plugin |
 | postgres | postgres:16-alpine | 5432 | Sample database |
 | redis | redis/redis-stack:7.4.0-v2 | 6379, 8001 | Semantic cache + RedisInsight |
 
@@ -34,7 +34,7 @@ The project includes a ready-to-use `docker/docker-compose.yml` for local develo
 
 ```bash
 # Build the uber JAR first
-mvn clean package -pl nexus-connect -am -DskipTests
+mvn clean package -pl kafka-connect-ai-connect -am -DskipTests
 
 # Start all services
 cd docker
@@ -51,7 +51,7 @@ Override Connect worker config through environment variables prefixed with `CONN
 ```yaml
 environment:
   CONNECT_BOOTSTRAP_SERVERS: kafka:29092
-  CONNECT_GROUP_ID: nexus-connect-group
+  CONNECT_GROUP_ID: kafka-connect-ai-connect-group
   CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
   CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
   CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
@@ -61,29 +61,29 @@ environment:
 
 ## Standalone Docker
 
-Run the Nexus Connect image without Docker Compose, connecting to existing Kafka infrastructure.
+Run the kafka-connect-ai Connect image without Docker Compose, connecting to existing Kafka infrastructure.
 
 ### Using the Pre-built Image
 
 ```bash
 docker run -d \
-  --name nexus-connect \
+  --name kafka-connect-ai-connect \
   -p 8083:8083 \
   -e CONNECT_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092 \
-  -e CONNECT_REST_ADVERTISED_HOST_NAME=nexus-connect \
+  -e CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect-ai-connect \
   -e CONNECT_REST_PORT=8083 \
-  -e CONNECT_GROUP_ID=nexus-connect-group \
-  -e CONNECT_CONFIG_STORAGE_TOPIC=_nexus-configs \
+  -e CONNECT_GROUP_ID=kafka-connect-ai-connect-group \
+  -e CONNECT_CONFIG_STORAGE_TOPIC=_kcai-configs \
   -e CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR=3 \
-  -e CONNECT_OFFSET_STORAGE_TOPIC=_nexus-offsets \
+  -e CONNECT_OFFSET_STORAGE_TOPIC=_kcai-offsets \
   -e CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR=3 \
-  -e CONNECT_STATUS_STORAGE_TOPIC=_nexus-status \
+  -e CONNECT_STATUS_STORAGE_TOPIC=_kcai-status \
   -e CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=3 \
   -e CONNECT_KEY_CONVERTER=org.apache.kafka.connect.storage.StringConverter \
   -e CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter \
   -e CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE=false \
   -e CONNECT_PLUGIN_PATH=/usr/share/java,/usr/share/confluent-hub-components \
-  ghcr.io/osodevops/nexus-connect:latest
+  ghcr.io/osodevops/kafka-connect-ai-connect:latest
 ```
 
 ### Building a Custom Image
@@ -91,8 +91,8 @@ docker run -d \
 ```dockerfile
 FROM confluentinc/cp-kafka-connect:7.8.0
 
-# Copy the Nexus uber JAR
-COPY nexus-connect-*-all.jar /usr/share/java/nexus/
+# Copy the kafka-connect-ai uber JAR
+COPY kafka-connect-ai-connect-*-all.jar /usr/share/java/kafka-connect-ai/
 
 ENV CONNECT_PLUGIN_PATH="/usr/share/java,/usr/share/confluent-hub-components"
 ```
@@ -100,17 +100,17 @@ ENV CONNECT_PLUGIN_PATH="/usr/share/java,/usr/share/confluent-hub-components"
 Build and run:
 
 ```bash
-docker build -t my-nexus-connect -f Dockerfile .
-docker run -d --name nexus-connect -p 8083:8083 \
+docker build -t my-kafka-connect-ai-connect -f Dockerfile .
+docker run -d --name kafka-connect-ai-connect -p 8083:8083 \
   -e CONNECT_BOOTSTRAP_SERVERS=... \
-  my-nexus-connect
+  my-kafka-connect-ai-connect
 ```
 
 ---
 
 ## Kubernetes / Strimzi
 
-Deploy Nexus on Kubernetes using the Strimzi Kafka operator.
+Deploy kafka-connect-ai on Kubernetes using the Strimzi Kafka operator.
 
 ### Prerequisites
 
@@ -123,7 +123,7 @@ Deploy Nexus on Kubernetes using the Strimzi Kafka operator.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnect
 metadata:
-  name: nexus-connect
+  name: kafka-connect-ai-connect
   annotations:
     strimzi.io/use-connector-resources: "true"
 spec:
@@ -135,12 +135,12 @@ spec:
       - secretName: my-kafka-cluster-cluster-ca-cert
         pattern: "*.crt"
   config:
-    group.id: nexus-connect-group
-    offset.storage.topic: _nexus-offsets
+    group.id: kafka-connect-ai-connect-group
+    offset.storage.topic: _kcai-offsets
     offset.storage.replication.factor: 3
-    config.storage.topic: _nexus-configs
+    config.storage.topic: _kcai-configs
     config.storage.replication.factor: 3
-    status.storage.topic: _nexus-status
+    status.storage.topic: _kcai-status
     status.storage.replication.factor: 3
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
@@ -148,13 +148,13 @@ spec:
   build:
     output:
       type: docker
-      image: my-registry/nexus-connect:latest
+      image: my-registry/kafka-connect-ai-connect:latest
       pushSecret: registry-credentials
     plugins:
-      - name: nexus
+      - name: kafka-connect-ai
         artifacts:
           - type: jar
-            url: https://github.com/osodevops/nexus/releases/download/v0.1.0/nexus-connect-0.1.0-all.jar
+            url: https://github.com/osodevops/kafka-connect-ai/releases/download/v0.1.0/kafka-connect-ai-connect-0.1.0-all.jar
   resources:
     requests:
       memory: 1Gi
@@ -172,13 +172,13 @@ kind: KafkaConnector
 metadata:
   name: api-source
   labels:
-    strimzi.io/cluster: nexus-connect
+    strimzi.io/cluster: kafka-connect-ai-connect
 spec:
-  class: sh.oso.nexus.connect.source.NexusSourceConnector
+  class: sh.oso.connect.ai.connect.source.AiSourceConnector
   tasksMax: 2
   config:
-    nexus.source.adapter: http
-    nexus.topic: api-events
+    connect.ai.source.adapter: http
+    connect.ai.topic: api-events
     http.source.url: "https://api.example.com/v1/data"
     http.source.poll.interval.ms: "60000"
     ai.llm.provider: anthropic
@@ -195,7 +195,7 @@ Store LLM API keys as Kubernetes secrets and mount them as environment variables
 apiVersion: v1
 kind: Secret
 metadata:
-  name: nexus-llm-keys
+  name: kafka-connect-ai-llm-keys
 type: Opaque
 stringData:
   ANTHROPIC_API_KEY: sk-ant-...
@@ -208,7 +208,7 @@ spec:
         - name: ANTHROPIC_API_KEY
           valueFrom:
             secretKeyRef:
-              name: nexus-llm-keys
+              name: kafka-connect-ai-llm-keys
               key: ANTHROPIC_API_KEY
 ```
 
@@ -216,20 +216,20 @@ spec:
 
 ## Bare Metal / VM
 
-Install the Nexus connector into an existing Kafka Connect installation.
+Install the kafka-connect-ai connector into an existing Kafka Connect installation.
 
 ### 1. Download the Uber JAR
 
-Download from [GitHub Releases](https://github.com/osodevops/nexus/releases):
+Download from [GitHub Releases](https://github.com/osodevops/kafka-connect-ai/releases):
 
 ```bash
 # Create plugin directory
-mkdir -p /opt/kafka-connect/plugins/nexus
+mkdir -p /opt/kafka-connect/plugins/kafka-connect-ai
 
 # Download and extract
-curl -L https://github.com/osodevops/nexus/releases/download/v0.1.0/nexus-connect-0.1.0.zip \
-  -o /tmp/nexus-connect.zip
-unzip /tmp/nexus-connect.zip -d /opt/kafka-connect/plugins/nexus/
+curl -L https://github.com/osodevops/kafka-connect-ai/releases/download/v0.1.0/kafka-connect-ai-connect-0.1.0.zip \
+  -o /tmp/kafka-connect-ai-connect.zip
+unzip /tmp/kafka-connect-ai-connect.zip -d /opt/kafka-connect/plugins/kafka-connect-ai/
 ```
 
 ### 2. Configure Plugin Path
@@ -250,7 +250,7 @@ systemctl restart kafka-connect
 ### 4. Verify Installation
 
 ```bash
-curl -s http://localhost:8083/connector-plugins | grep nexus
+curl -s http://localhost:8083/connector-plugins | grep ai
 ```
 
 ---
@@ -263,11 +263,11 @@ For existing Confluent Platform installations.
 
 ```bash
 # Copy uber JAR to Confluent plugin directory
-cp nexus-connect-*-all.jar /usr/share/confluent-hub-components/nexus/
+cp kafka-connect-ai-connect-*-all.jar /usr/share/confluent-hub-components/kafka-connect-ai/
 
 # Or use a dedicated plugin directory
-mkdir -p /opt/connectors/nexus
-cp nexus-connect-*-all.jar /opt/connectors/nexus/
+mkdir -p /opt/connectors/kafka-connect-ai
+cp kafka-connect-ai-connect-*-all.jar /opt/connectors/kafka-connect-ai/
 ```
 
 Update the Connect worker config to include the plugin path:
@@ -278,7 +278,7 @@ plugin.path=/usr/share/java,/usr/share/confluent-hub-components,/opt/connectors
 
 ### Confluent Control Center
 
-Once deployed, Nexus connectors appear in Confluent Control Center under **Connect > Connectors**. You can create and manage connector instances through the UI.
+Once deployed, kafka-connect-ai connectors appear in Confluent Control Center under **Connect > Connectors**. You can create and manage connector instances through the UI.
 
 ---
 
@@ -320,20 +320,20 @@ CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=3
 
 ### Monitoring
 
-Nexus exposes 16 JMX metrics via Micrometer. See [Troubleshooting](troubleshooting.md#monitoring--metrics) for the full list.
+kafka-connect-ai exposes 16 JMX metrics via Micrometer. See [Troubleshooting](troubleshooting.md#monitoring--metrics) for the full list.
 
 Key metrics to alert on:
 
 | Metric | Alert Condition |
 |--------|-----------------|
-| `nexus.records.failed.total` | > 0 (any failures) |
-| `nexus.llm.call.latency` | p99 > 30s |
-| `nexus.cache.hit.ratio` | < 0.5 (cache not effective) |
-| `nexus.llm.cost.usd.total` | Exceeds budget threshold |
+| `connect.ai.records.failed.total` | > 0 (any failures) |
+| `connect.ai.llm.call.latency` | p99 > 30s |
+| `connect.ai.cache.hit.ratio` | < 0.5 (cache not effective) |
+| `connect.ai.llm.cost.usd.total` | Exceeds budget threshold |
 
 ### High Availability
 
 - Run multiple Connect workers in the same `group.id` for automatic failover
 - Set `tasks.max` to distribute work across workers
-- Use a dead-letter queue (`nexus.dlq.topic`) to capture failed records without blocking the pipeline
+- Use a dead-letter queue (`connect.ai.dlq.topic`) to capture failed records without blocking the pipeline
 - Configure `offset.flush.interval.ms` (default 60s) based on your durability requirements

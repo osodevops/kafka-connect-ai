@@ -1,4 +1,4 @@
-# Nexus Troubleshooting Guide
+# kafka-connect-ai Troubleshooting Guide
 
 Common issues, debugging techniques, and monitoring reference.
 
@@ -8,16 +8,16 @@ Common issues, debugging techniques, and monitoring reference.
 
 ### Connector Not Found After Deployment
 
-**Symptom:** `curl http://localhost:8083/connector-plugins` does not list Nexus connectors.
+**Symptom:** `curl http://localhost:8083/connector-plugins` does not list kafka-connect-ai connectors.
 
 **Causes and fixes:**
 
-1. **Plugin path misconfigured** — Ensure `CONNECT_PLUGIN_PATH` (or `plugin.path` in worker properties) includes the directory containing the Nexus JAR.
+1. **Plugin path misconfigured** — Ensure `CONNECT_PLUGIN_PATH` (or `plugin.path` in worker properties) includes the directory containing the kafka-connect-ai JAR.
 
 2. **Non-JAR files in plugin directory** — The Connect plugin scanner expects only JAR files. If you mounted a whole `target/` directory, it will fail. Mount only the uber JAR:
    ```yaml
    volumes:
-     - ./nexus-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/nexus/nexus-connect.jar
+     - ./kafka-connect-ai-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/kafka-connect-ai/kafka-connect-ai-connect.jar
    ```
 
 3. **Wrong JAR variant** — Make sure you're using the `-all.jar` (uber JAR with shaded dependencies), not the thin JAR.
@@ -35,7 +35,7 @@ Common issues, debugging techniques, and monitoring reference.
 curl -s http://localhost:8083/connectors/my-connector/status | python3 -m json.tool
 
 # View Connect worker logs
-docker logs nexus-connect --tail 200
+docker logs kafka-connect-ai-connect --tail 200
 ```
 
 **Common causes:**
@@ -43,7 +43,7 @@ docker logs nexus-connect --tail 200
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `Missing required configuration` | Required property not set | Check [Configuration Reference](configuration.md) for required properties |
-| `Unknown adapter type` | Invalid `nexus.source.adapter` value | Must be `http`, `jdbc`, or `kafka` |
+| `Unknown adapter type` | Invalid `connect.ai.source.adapter` value | Must be `http`, `jdbc`, or `kafka` |
 | `Connection refused` | Target service unreachable | Check network connectivity, hostnames, ports |
 | `401 Unauthorized` | Invalid LLM API key | Verify `ai.llm.api.key` is correct and active |
 | `ClassNotFoundException` | Missing JDBC driver | Add `jdbc.driver.class` or ensure driver is on classpath |
@@ -56,7 +56,7 @@ docker logs nexus-connect --tail 200
 
 1. Check Connect worker logs for LLM-related errors:
    ```bash
-   docker logs nexus-connect 2>&1 | grep -i "llm\|anthropic\|openai"
+   docker logs kafka-connect-ai-connect 2>&1 | grep -i "llm\|anthropic\|openai"
    ```
 
 2. Common LLM errors:
@@ -134,7 +134,7 @@ docker logs nexus-connect --tail 200
 1. **Redis not reachable** — Verify `ai.cache.redis.url` and that Redis Stack is running (requires RediSearch module for vector search)
 2. **Threshold too high** — Lower `ai.cache.similarity.threshold` (default 0.95). For exact-match deduplication, 0.99 works well. For fuzzy matching, try 0.90.
 3. **Embedding API failure** — The cache uses OpenAI embeddings (`ai.cache.embedding.model`). Verify the API key has access to OpenAI's embedding endpoint.
-4. **Records too unique** — If every record is genuinely different, the cache won't help. Check the `nexus.cache.hit.ratio` metric.
+4. **Records too unique** — If every record is genuinely different, the cache won't help. Check the `connect.ai.cache.hit.ratio` metric.
 
 ### Docker-Specific Issues
 
@@ -151,7 +151,7 @@ docker compose logs kafka | tail -20
 - Mount a single JAR file, not a directory:
   ```yaml
   volumes:
-    - ./nexus-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/nexus/nexus-connect.jar
+    - ./kafka-connect-ai-connect-0.1.0-SNAPSHOT-all.jar:/usr/share/java/kafka-connect-ai/kafka-connect-ai-connect.jar
   ```
 
 **Container networking:**
@@ -164,10 +164,10 @@ docker compose logs kafka | tail -20
 
 ### Enable DEBUG Logging
 
-Set Connect worker log level for Nexus classes:
+Set Connect worker log level for kafka-connect-ai classes:
 
 ```bash
-curl -X PUT http://localhost:8083/admin/loggers/sh.oso.nexus \
+curl -X PUT http://localhost:8083/admin/loggers/sh.oso.connect.ai \
   -H "Content-Type: application/json" \
   -d '{"level": "DEBUG"}'
 ```
@@ -175,14 +175,14 @@ curl -X PUT http://localhost:8083/admin/loggers/sh.oso.nexus \
 Reset to INFO:
 
 ```bash
-curl -X PUT http://localhost:8083/admin/loggers/sh.oso.nexus \
+curl -X PUT http://localhost:8083/admin/loggers/sh.oso.connect.ai \
   -H "Content-Type: application/json" \
   -d '{"level": "INFO"}'
 ```
 
 ### Structured Logging
 
-Nexus uses MDC-based structured logging via `LogContext`. Log entries include:
+kafka-connect-ai uses MDC-based structured logging via `LogContext`. Log entries include:
 
 | MDC Key | Description |
 |---------|-------------|
@@ -195,30 +195,30 @@ Nexus uses MDC-based structured logging via `LogContext`. Log entries include:
 
 ```bash
 # View connector configs
-docker exec nexus-kafka kafka-console-consumer \
+docker exec kcai-kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
-  --topic _nexus-configs \
+  --topic _kcai-configs \
   --from-beginning
 
 # View connector offsets
-docker exec nexus-kafka kafka-console-consumer \
+docker exec kcai-kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
-  --topic _nexus-offsets \
+  --topic _kcai-offsets \
   --from-beginning
 
 # View connector status
-docker exec nexus-kafka kafka-console-consumer \
+docker exec kcai-kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
-  --topic _nexus-status \
+  --topic _kcai-status \
   --from-beginning
 ```
 
 ### Consume DLQ Records
 
-If a DLQ topic is configured (`nexus.dlq.topic`), failed records land there with error metadata:
+If a DLQ topic is configured (`connect.ai.dlq.topic`), failed records land there with error metadata:
 
 ```bash
-docker exec nexus-kafka kafka-console-consumer \
+docker exec kcai-kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
   --topic my-connector-dlq \
   --from-beginning \
@@ -229,7 +229,7 @@ docker exec nexus-kafka kafka-console-consumer \
 
 ## Monitoring & Metrics
 
-Nexus exposes 16 JMX metrics via Micrometer, registered with the `nexus` prefix.
+kafka-connect-ai exposes 16 JMX metrics via Micrometer, registered with the `connect.ai` prefix.
 
 ### Metric Reference
 
@@ -237,48 +237,48 @@ Nexus exposes 16 JMX metrics via Micrometer, registered with the `nexus` prefix.
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `nexus.records.processed.total` | Counter | Total records successfully processed |
-| `nexus.records.failed.total` | Counter | Total records that failed processing |
+| `connect.ai.records.processed.total` | Counter | Total records successfully processed |
+| `connect.ai.records.failed.total` | Counter | Total records that failed processing |
 
 #### LLM
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `nexus.llm.calls.total` | Counter | Total LLM API calls made |
-| `nexus.llm.call.latency` | Timer | LLM call latency (with percentile histogram) |
-| `nexus.llm.tokens.input.total` | Counter | Total input tokens consumed |
-| `nexus.llm.tokens.output.total` | Counter | Total output tokens produced |
-| `nexus.llm.cost.usd.total` | Counter | Estimated total LLM cost in USD |
+| `connect.ai.llm.calls.total` | Counter | Total LLM API calls made |
+| `connect.ai.llm.call.latency` | Timer | LLM call latency (with percentile histogram) |
+| `connect.ai.llm.tokens.input.total` | Counter | Total input tokens consumed |
+| `connect.ai.llm.tokens.output.total` | Counter | Total output tokens produced |
+| `connect.ai.llm.cost.usd.total` | Counter | Estimated total LLM cost in USD |
 
 #### Cache
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `nexus.cache.hits.total` | Counter | Total semantic cache hits |
-| `nexus.cache.misses.total` | Counter | Total semantic cache misses |
-| `nexus.cache.hit.ratio` | Gauge | Cache hit ratio (hits / total lookups) |
+| `connect.ai.cache.hits.total` | Counter | Total semantic cache hits |
+| `connect.ai.cache.misses.total` | Counter | Total semantic cache misses |
+| `connect.ai.cache.hit.ratio` | Gauge | Cache hit ratio (hits / total lookups) |
 
 #### Router
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `nexus.router.tier0.total` | Counter | Records routed to Tier 0 (deterministic) |
-| `nexus.router.tier1.total` | Counter | Records routed to Tier 1 (fast model) |
-| `nexus.router.tier2.total` | Counter | Records routed to Tier 2 (default model) |
-| `nexus.router.tier3.total` | Counter | Records routed to Tier 3 (powerful model) |
+| `connect.ai.router.tier0.total` | Counter | Records routed to Tier 0 (deterministic) |
+| `connect.ai.router.tier1.total` | Counter | Records routed to Tier 1 (fast model) |
+| `connect.ai.router.tier2.total` | Counter | Records routed to Tier 2 (default model) |
+| `connect.ai.router.tier3.total` | Counter | Records routed to Tier 3 (powerful model) |
 
 #### Adapters
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `nexus.adapter.fetch.latency` | Timer | Source adapter fetch latency (with percentile histogram) |
-| `nexus.adapter.write.latency` | Timer | Sink adapter write latency (with percentile histogram) |
+| `connect.ai.adapter.fetch.latency` | Timer | Source adapter fetch latency (with percentile histogram) |
+| `connect.ai.adapter.write.latency` | Timer | Sink adapter write latency (with percentile histogram) |
 
 #### Batching
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `nexus.batch.size` | Distribution Summary | Batch sizes processed |
+| `connect.ai.batch.size` | Distribution Summary | Batch sizes processed |
 
 ### Accessing Metrics via JMX
 
@@ -301,12 +301,12 @@ Use the [JMX Exporter](https://github.com/prometheus/jmx_exporter) as a Java age
 KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9404:/opt/jmx_exporter/config.yml"
 ```
 
-Example `config.yml` for Nexus metrics:
+Example `config.yml` for kafka-connect-ai metrics:
 
 ```yaml
 rules:
-  - pattern: "metrics<name=nexus\\.(.+)><>(.+)"
-    name: "nexus_$1"
+  - pattern: "metrics<name=connect\\.ai\\.(.+)><>(.+)"
+    name: "connect_ai_$1"
     type: GAUGE
 ```
 
@@ -314,17 +314,17 @@ rules:
 
 | Alert | Condition | Severity |
 |-------|-----------|----------|
-| Record failures | `nexus.records.failed.total` increasing | Critical |
-| LLM latency spike | `nexus.llm.call.latency` p99 > 30s | Warning |
-| LLM cost runaway | `nexus.llm.cost.usd.total` rate > budget/hour | Warning |
-| Cache ineffective | `nexus.cache.hit.ratio` < 0.3 | Info |
-| All calls on Tier 3 | `nexus.router.tier3.total` > 50% of total | Warning |
+| Record failures | `connect.ai.records.failed.total` increasing | Critical |
+| LLM latency spike | `connect.ai.llm.call.latency` p99 > 30s | Warning |
+| LLM cost runaway | `connect.ai.llm.cost.usd.total` rate > budget/hour | Warning |
+| Cache ineffective | `connect.ai.cache.hit.ratio` < 0.3 | Info |
+| All calls on Tier 3 | `connect.ai.router.tier3.total` > 50% of total | Warning |
 
 ---
 
 ## Connect REST API Reference
 
-Quick reference for the Kafka Connect REST API endpoints used with Nexus.
+Quick reference for the Kafka Connect REST API endpoints used with kafka-connect-ai.
 
 ```bash
 # List connector plugins
