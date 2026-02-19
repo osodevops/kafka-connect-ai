@@ -1,0 +1,45 @@
+package sh.oso.connect.ai.adapter.grpc;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import sh.oso.connect.ai.api.config.AiConnectConfig;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class GrpcSourceAdapterTest {
+
+    private GrpcSourceAdapter adapter;
+
+    @BeforeEach
+    void setUp() {
+        adapter = new GrpcSourceAdapter();
+    }
+
+    @Test
+    void typeReturnsGrpc() {
+        assertEquals("grpc", adapter.type());
+    }
+
+    @Test
+    void configDefContainsRequiredFields() {
+        var configDef = adapter.configDef();
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_TARGET));
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_SERVICE));
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_METHOD));
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_MODE));
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_TLS_ENABLED));
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_PROTO_DESCRIPTOR_PATH));
+        assertNotNull(configDef.configKeys().get(AiConnectConfig.GRPC_POLL_INTERVAL_MS));
+    }
+
+    @Test
+    void isHealthyReturnsFalseBeforeStart() {
+        assertFalse(adapter.isHealthy());
+    }
+
+    @Test
+    void stopIsIdempotent() {
+        assertDoesNotThrow(() -> adapter.stop());
+        assertDoesNotThrow(() -> adapter.stop());
+    }
+}

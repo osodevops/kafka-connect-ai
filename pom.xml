@@ -42,6 +42,14 @@
         <module>kafka-connect-ai-adapter-http</module>
         <module>kafka-connect-ai-adapter-jdbc</module>
         <module>kafka-connect-ai-adapter-kafka</module>
+        <module>kafka-connect-ai-adapter-grpc</module>
+        <module>kafka-connect-ai-adapter-warehouse</module>
+        <module>kafka-connect-ai-adapter-redis</module>
+        <module>kafka-connect-ai-adapter-streaming</module>
+        <module>kafka-connect-ai-adapter-cassandra</module>
+        <module>kafka-connect-ai-adapter-kinesis</module>
+        <module>kafka-connect-ai-adapter-mongodb</module>
+        <module>kafka-connect-ai-adapter-ldap</module>
         <module>kafka-connect-ai-connect</module>
         <module>kafka-connect-ai-integration-tests</module>
     </modules>
@@ -59,6 +67,31 @@
         <postgresql.version>42.7.4</postgresql.version>
         <micrometer.version>1.14.3</micrometer.version>
         <jedis.version>5.2.0</jedis.version>
+
+        <!-- Resilience -->
+        <resilience4j.version>2.2.0</resilience4j.version>
+
+        <!-- MongoDB -->
+        <mongodb.driver.version>5.3.0</mongodb.driver.version>
+
+        <!-- Cloud Data Warehouse -->
+        <snowflake.jdbc.version>3.19.0</snowflake.jdbc.version>
+        <aws.sdk.version>2.25.0</aws.sdk.version>
+        <google.cloud.bigquerystorage.version>3.4.0</google.cloud.bigquerystorage.version>
+
+        <!-- gRPC -->
+        <grpc.version>1.64.0</grpc.version>
+        <protobuf.version>3.25.3</protobuf.version>
+
+        <!-- Streaming -->
+        <okhttp.eventsource.version>4.1.1</okhttp.eventsource.version>
+        <cometd.version>7.0.12</cometd.version>
+
+        <!-- Cassandra -->
+        <cassandra-driver.version>4.17.0</cassandra-driver.version>
+
+        <!-- LDAP -->
+        <unboundid.ldapsdk.version>7.0.1</unboundid.ldapsdk.version>
 
         <!-- Testing -->
         <junit.version>5.11.3</junit.version>
@@ -108,6 +141,46 @@
                 <artifactId>kafka-connect-ai-adapter-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-grpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-warehouse</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-redis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-streaming</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-cassandra</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-kinesis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-mongodb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>sh.oso</groupId>
+                <artifactId>kafka-connect-ai-adapter-ldap</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- Kafka Connect API (provided by runtime) -->
             <dependency>
@@ -119,6 +192,84 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>${kafka.version}</version>
+            </dependency>
+
+            <!-- Resilience4j -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-circuitbreaker</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+
+            <!-- MongoDB -->
+            <dependency>
+                <groupId>org.mongodb</groupId>
+                <artifactId>mongodb-driver-sync</artifactId>
+                <version>${mongodb.driver.version}</version>
+            </dependency>
+
+            <!-- Snowflake -->
+            <dependency>
+                <groupId>net.snowflake</groupId>
+                <artifactId>snowflake-jdbc</artifactId>
+                <version>${snowflake.jdbc.version}</version>
+            </dependency>
+
+            <!-- AWS SDK BOM -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Google Cloud BigQuery Storage -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-bigquerystorage</artifactId>
+                <version>${google.cloud.bigquerystorage.version}</version>
+            </dependency>
+
+            <!-- gRPC -->
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-netty-shaded</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-protobuf</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-stub</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${protobuf.version}</version>
+            </dependency>
+
+            <!-- Streaming -->
+            <dependency>
+                <groupId>com.launchdarkly</groupId>
+                <artifactId>okhttp-eventsource</artifactId>
+                <version>${okhttp.eventsource.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.cometd.java</groupId>
+                <artifactId>cometd-java-client-http-jetty</artifactId>
+                <version>${cometd.version}</version>
+            </dependency>
+
+            <!-- LDAP -->
+            <dependency>
+                <groupId>com.unboundid</groupId>
+                <artifactId>unboundid-ldapsdk</artifactId>
+                <version>${unboundid.ldapsdk.version}</version>
             </dependency>
 
             <!-- JDBC -->
@@ -167,6 +318,13 @@
                 <groupId>redis.clients</groupId>
                 <artifactId>jedis</artifactId>
                 <version>${jedis.version}</version>
+            </dependency>
+
+            <!-- Cassandra -->
+            <dependency>
+                <groupId>com.datastax.oss</groupId>
+                <artifactId>java-driver-core</artifactId>
+                <version>${cassandra-driver.version}</version>
             </dependency>
 
             <!-- Logging -->
@@ -376,6 +534,12 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>sap</id>
+            <modules>
+                <module>kafka-connect-ai-adapter-sap</module>
+            </modules>
         </profile>
     </profiles>
 </project>

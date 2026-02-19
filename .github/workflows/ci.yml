@@ -18,15 +18,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build and test
-        run: mvn clean verify -pl kafka-connect-ai-api,kafka-connect-ai-adapter-http,kafka-connect-ai-adapter-jdbc,kafka-connect-ai-adapter-kafka,kafka-connect-ai-connect -am -B
+      - name: Build and test all modules
+        run: mvn clean verify -B
 
       - name: Upload uber JAR
         uses: actions/upload-artifact@v4
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -58,3 +58,30 @@ jobs:
 
       - name: Run integration tests
         run: mvn verify -pl kafka-connect-ai-integration-tests -am -B
+
+  e2e-test:
+    name: E2E Tests (Live OpenAI)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Download uber JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: kafka-connect-ai-uber-jar
+          path: kafka-connect-ai-connect/target/
+
+      - name: Run E2E tests with live OpenAI
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: mvn verify -pl kafka-connect-ai-integration-tests -am -B -Dit.test=LiveOpenAiPipelineIT

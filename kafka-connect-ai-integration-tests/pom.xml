@@ -32,6 +32,18 @@
             <artifactId>kafka-connect-ai-adapter-kafka</artifactId>
         </dependency>
         <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-mongodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-cassandra</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
@@ -74,6 +86,28 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mongodb</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>cassandra</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.datastax.oss</groupId>
+            <artifactId>java-driver-core</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -122,6 +156,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <OPENAI_API_KEY>${env.OPENAI_API_KEY}</OPENAI_API_KEY>
+                    </environmentVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

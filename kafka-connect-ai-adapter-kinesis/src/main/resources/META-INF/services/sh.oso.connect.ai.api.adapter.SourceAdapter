@@ -1,0 +1,2 @@
+sh.oso.connect.ai.adapter.kinesis.KinesisSourceAdapter
+sh.oso.connect.ai.adapter.kinesis.DynamoDbStreamSourceAdapter

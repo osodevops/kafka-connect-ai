@@ -32,6 +32,43 @@
             <artifactId>kafka-connect-ai-adapter-kafka</artifactId>
         </dependency>
         <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-mongodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-warehouse</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-grpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-kinesis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-streaming</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-cassandra</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>sh.oso</groupId>
+            <artifactId>kafka-connect-ai-adapter-ldap</artifactId>
+        </dependency>
+        <!-- Resilience4j circuit breaker -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
             <scope>provided</scope>
@@ -141,6 +178,49 @@
                                 <relocation>
                                     <pattern>org.json</pattern>
                                     <shadedPattern>sh.oso.connect.ai.shaded.json</shadedPattern>
+                                </relocation>
+                                <!-- Resilience4j -->
+                                <relocation>
+                                    <pattern>io.github.resilience4j</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.resilience4j</shadedPattern>
+                                </relocation>
+                                <!-- MongoDB -->
+                                <relocation>
+                                    <pattern>org.mongodb</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.mongodb</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.bson</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.bson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.mongodb</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.com.mongodb</shadedPattern>
+                                </relocation>
+                                <!-- AWS SDK -->
+                                <relocation>
+                                    <pattern>software.amazon</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.amazon</shadedPattern>
+                                </relocation>
+                                <!-- Google Cloud -->
+                                <relocation>
+                                    <pattern>com.google.cloud</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.google.cloud</shadedPattern>
+                                </relocation>
+                                <!-- Snowflake -->
+                                <relocation>
+                                    <pattern>net.snowflake</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.snowflake</shadedPattern>
+                                </relocation>
+                                <!-- Cassandra -->
+                                <relocation>
+                                    <pattern>com.datastax</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.datastax</shadedPattern>
+                                </relocation>
+                                <!-- LDAP -->
+                                <relocation>
+                                    <pattern>com.unboundid</pattern>
+                                    <shadedPattern>sh.oso.connect.ai.shaded.unboundid</shadedPattern>
                                 </relocation>
                             </relocations>
                             <transformers>

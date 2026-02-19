@@ -1,0 +1,3 @@
+sh.oso.connect.ai.adapter.streaming.WebSocketSourceAdapter
+sh.oso.connect.ai.adapter.streaming.SseSourceAdapter
+sh.oso.connect.ai.adapter.streaming.CometDSourceAdapter

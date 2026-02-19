@@ -15,6 +15,7 @@ import sh.oso.connect.ai.connect.config.AiSinkConfig;
 import sh.oso.connect.ai.connect.metrics.LogContext;
 import sh.oso.connect.ai.connect.metrics.AiConnectMetrics;
 import sh.oso.connect.ai.connect.pipeline.BasicAgentPipeline;
+import sh.oso.connect.ai.connect.resilience.CircuitBreakingSinkAdapter;
 import sh.oso.connect.ai.connect.spi.AdapterRegistry;
 
 import java.util.ArrayList;
@@ -43,6 +44,13 @@ public class AiSinkTask extends SinkTask {
         AdapterRegistry registry = new AdapterRegistry();
         this.adapter = registry.getSinkAdapter(config.sinkAdapterType());
         this.adapter.start(props);
+
+        boolean circuitBreakerEnabled = Boolean.parseBoolean(
+                props.getOrDefault(AiConnectConfig.CIRCUIT_BREAKER_ENABLED, "false"));
+        if (circuitBreakerEnabled) {
+            this.adapter = new CircuitBreakingSinkAdapter(this.adapter, props);
+            log.info("Circuit breaker enabled for sink adapter '{}'", config.sinkAdapterType());
+        }
 
         this.pipeline = new BasicAgentPipeline();
         this.pipeline.configure(props);

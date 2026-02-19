@@ -14,6 +14,7 @@ import sh.oso.connect.ai.api.pipeline.AgentPipeline;
 import sh.oso.connect.ai.connect.config.AiSourceConfig;
 import sh.oso.connect.ai.connect.llm.LlmClient;
 import sh.oso.connect.ai.connect.llm.LlmClientFactory;
+import sh.oso.connect.ai.connect.resilience.CircuitBreakingSourceAdapter;
 import sh.oso.connect.ai.connect.metrics.LogContext;
 import sh.oso.connect.ai.connect.metrics.AiConnectMetrics;
 import sh.oso.connect.ai.connect.pipeline.BasicAgentPipeline;
@@ -54,6 +55,13 @@ public class AiSourceTask extends SourceTask {
         AdapterRegistry registry = new AdapterRegistry();
         this.adapter = registry.getSourceAdapter(config.sourceAdapterType());
         this.adapter.start(props);
+
+        boolean circuitBreakerEnabled = Boolean.parseBoolean(
+                props.getOrDefault(AiConnectConfig.CIRCUIT_BREAKER_ENABLED, "false"));
+        if (circuitBreakerEnabled) {
+            this.adapter = new CircuitBreakingSourceAdapter(this.adapter, props);
+            log.info("Circuit breaker enabled for source adapter '{}'", config.sourceAdapterType());
+        }
 
         Map<String, String> effectiveProps = new HashMap<>(props);
 
