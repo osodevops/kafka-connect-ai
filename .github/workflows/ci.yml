@@ -14,6 +14,7 @@ jobs:
   build-and-test:
     name: Build & Unit Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,8 +26,11 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build and test all modules
-        run: mvn clean verify -B
+      - name: Compile and run unit tests
+        run: mvn clean test -B
+
+      - name: Package uber JAR
+        run: mvn package -pl kafka-connect-ai-connect -B -DskipTests
 
       - name: Upload uber JAR
         uses: actions/upload-artifact@v4
@@ -39,6 +43,7 @@ jobs:
     name: Integration Tests
     needs: build-and-test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,12 +55,6 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Download uber JAR
-        uses: actions/download-artifact@v4
-        with:
-          name: kafka-connect-ai-uber-jar
-          path: kafka-connect-ai-connect/target/
-
       - name: Run integration tests
         run: mvn verify -pl kafka-connect-ai-integration-tests -am -B
 
@@ -63,6 +62,7 @@ jobs:
     name: E2E Tests (Live OpenAI)
     needs: build-and-test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
@@ -74,12 +74,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-
-      - name: Download uber JAR
-        uses: actions/download-artifact@v4
-        with:
-          name: kafka-connect-ai-uber-jar
-          path: kafka-connect-ai-connect/target/
 
       - name: Run E2E tests with live OpenAI
         env:
