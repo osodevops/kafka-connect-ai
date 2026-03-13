@@ -4,7 +4,7 @@
 
     <groupId>sh.oso</groupId>
     <artifactId>kafka-connect-ai</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>kafka-connect-ai</name>
@@ -32,7 +32,7 @@
         <connection>scm:git:git://github.com/osodevops/kafka-connect-ai.git</connection>
         <developerConnection>scm:git:git@github.com:osodevops/kafka-connect-ai.git</developerConnection>
         <url>https://github.com/osodevops/kafka-connect-ai</url>
-        <tag>v0.1.0</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <modules>
