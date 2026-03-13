@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,6 +131,27 @@ class ParallelLlmExecutorTest {
 
         // 2 of 3 sub-batches succeeded
         assertEquals(2, result.size());
+    }
+
+    @Test
+    void usesVirtualThreads() {
+        ParallelLlmExecutor executor = new ParallelLlmExecutor(2, 30);
+
+        List<List<RawRecord>> subBatches = List.of(
+                List.of(record("a")),
+                List.of(record("b"))
+        );
+
+        CopyOnWriteArrayList<Boolean> virtualFlags = new CopyOnWriteArrayList<>();
+
+        executor.execute(subBatches, batch -> {
+            virtualFlags.add(Thread.currentThread().isVirtual());
+            return batch.stream().map(r -> transformed(new String(r.key()))).toList();
+        });
+
+        assertFalse(virtualFlags.isEmpty());
+        assertTrue(virtualFlags.stream().allMatch(v -> v),
+                "All tasks should run on virtual threads");
     }
 
     @Test

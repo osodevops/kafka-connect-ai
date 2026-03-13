@@ -4,10 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sh.oso.connect.ai.api.config.AiConnectConfig;
 import sh.oso.connect.ai.api.error.NonRetryableException;
+import sh.oso.connect.ai.api.error.RetryableException;
 import sh.oso.connect.ai.api.model.RawRecord;
 import sh.oso.connect.ai.api.model.TransformedRecord;
 import sh.oso.connect.ai.api.pipeline.AgentPipeline;
@@ -21,10 +25,13 @@ import sh.oso.connect.ai.connect.llm.LlmResponse;
 import sh.oso.connect.ai.connect.metrics.LogContext;
 import sh.oso.connect.ai.connect.metrics.AiConnectMetrics;
 
+import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
+import java.util.regex.Pattern;
 
-public class BasicAgentPipeline implements AgentPipeline {
+public class BasicAgentPipeline implements AgentPipeline, Closeable {
 
     private static final Logger log = LoggerFactory.getLogger(BasicAgentPipeline.class);
     private static final int DEFAULT_MAX_RETRIES = 3;
@@ -53,6 +60,19 @@ public class BasicAgentPipeline implements AgentPipeline {
     private boolean routerEnabled;
     private boolean cacheEnabled;
     private int parallelCalls;
+
+    // Phase 4: Compiled transforms (compile-once-execute-forever)
+    private boolean compiledTransformEnabled;
+    private CompiledTransformCache compiledTransformCache;
+    private TransformCompiler transformCompiler;
+    private GraalJsTransformExecutor jsExecutor;
+
+    // Phase 5: Circuit breaker on LLM calls
+    private CircuitBreaker llmCircuitBreaker;
+
+    // Phase 6: Rate limiter, PII masking
+    private RateLimiter llmRateLimiter;
+    private PiiMasker piiMasker;
 
     @Override
     public void configure(Map<String, String> props) {
@@ -118,6 +138,84 @@ public class BasicAgentPipeline implements AgentPipeline {
             EmbeddingClient embeddingClient = new EmbeddingClient(apiKey, embeddingModel);
             this.semanticCache = new SemanticCache(redisUrl, embeddingClient, threshold, ttl);
         }
+
+        // Compiled transforms (compile-once-execute-forever)
+        this.compiledTransformEnabled = Boolean.parseBoolean(
+                props.getOrDefault(AiConnectConfig.COMPILED_TRANSFORM_ENABLED, "false"));
+        if (compiledTransformEnabled) {
+            long compiledTtl = Long.parseLong(
+                    props.getOrDefault(AiConnectConfig.COMPILED_TRANSFORM_TTL_SECONDS, "86400"));
+            long jsTimeoutMs = Long.parseLong(
+                    props.getOrDefault(AiConnectConfig.COMPILED_TRANSFORM_JS_TIMEOUT_MS, "100"));
+            int jsHeapMb = Integer.parseInt(
+                    props.getOrDefault(AiConnectConfig.COMPILED_TRANSFORM_JS_HEAP_MB, "10"));
+            int validationSamples = Integer.parseInt(
+                    props.getOrDefault(AiConnectConfig.COMPILED_TRANSFORM_VALIDATION_SAMPLES, "3"));
+
+            this.compiledTransformCache = new CompiledTransformCache(compiledTtl);
+            if (this.metrics != null) {
+                this.metrics.registerCompiledTransformCacheSize(this.compiledTransformCache::size);
+            }
+            this.jsExecutor = new GraalJsTransformExecutor(jsTimeoutMs, jsHeapMb);
+            this.transformCompiler = new TransformCompiler(
+                    this.llmClient, this.model, this.enablePromptCaching,
+                    validationSamples, this.jsExecutor, this.schemaEnforcer, this.targetSchema);
+            log.info("Compiled transforms enabled: ttl={}s, jsTimeout={}ms, jsHeap={}MB",
+                    compiledTtl, jsTimeoutMs, jsHeapMb);
+        }
+
+        // Circuit breaker on LLM calls
+        boolean cbEnabled = Boolean.parseBoolean(
+                props.getOrDefault(AiConnectConfig.CIRCUIT_BREAKER_ENABLED, "false"));
+        if (cbEnabled) {
+            float failureRate = Float.parseFloat(
+                    props.getOrDefault(AiConnectConfig.CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD, "50"));
+            long waitDurationMs = Long.parseLong(
+                    props.getOrDefault(AiConnectConfig.CIRCUIT_BREAKER_WAIT_DURATION_MS, "60000"));
+            int slidingWindowSize = Integer.parseInt(
+                    props.getOrDefault(AiConnectConfig.CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE, "10"));
+
+            CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
+                    .failureRateThreshold(failureRate)
+                    .waitDurationInOpenState(Duration.ofMillis(waitDurationMs))
+                    .slidingWindowSize(slidingWindowSize)
+                    .build();
+
+            this.llmCircuitBreaker = CircuitBreaker.of("llm-pipeline", cbConfig);
+            this.llmCircuitBreaker.getEventPublisher()
+                    .onStateTransition(event ->
+                            log.warn("LLM circuit breaker state transition: {}", event.getStateTransition()));
+            log.info("LLM circuit breaker enabled: failureRate={}%, waitDuration={}ms, window={}",
+                    failureRate, waitDurationMs, slidingWindowSize);
+        }
+
+        // LLM rate limiting
+        double rateLimit = Double.parseDouble(
+                props.getOrDefault(AiConnectConfig.LLM_RATE_LIMIT, "0"));
+        if (rateLimit > 0) {
+            this.llmRateLimiter = new RateLimiter(rateLimit);
+            log.info("LLM rate limiter enabled: {} requests/sec", rateLimit);
+        }
+
+        // PII masking
+        String maskFieldsStr = props.getOrDefault(AiConnectConfig.PRIVACY_MASK_FIELDS, "");
+        String maskPatternsStr = props.getOrDefault(AiConnectConfig.PRIVACY_MASK_PATTERNS, "");
+        String maskReplacement = props.getOrDefault(AiConnectConfig.PRIVACY_MASK_REPLACEMENT, "[MASKED]");
+        boolean unmaskOutput = Boolean.parseBoolean(
+                props.getOrDefault(AiConnectConfig.PRIVACY_UNMASK_OUTPUT, "true"));
+
+        Set<String> maskFields = maskFieldsStr.isEmpty() ? Set.of()
+                : new LinkedHashSet<>(Arrays.asList(maskFieldsStr.split(",")));
+        List<Pattern> maskPatterns = new ArrayList<>();
+        if (!maskPatternsStr.isEmpty()) {
+            for (String p : maskPatternsStr.split(",")) {
+                maskPatterns.add(Pattern.compile(p.trim()));
+            }
+        }
+        if (!maskFields.isEmpty() || !maskPatterns.isEmpty()) {
+            this.piiMasker = new PiiMasker(maskFields, maskPatterns, maskReplacement, unmaskOutput);
+            log.info("PII masking enabled: fields={}, patterns={}", maskFields.size(), maskPatterns.size());
+        }
     }
 
     // Visible for testing
@@ -137,6 +235,7 @@ public class BasicAgentPipeline implements AgentPipeline {
         this.routerEnabled = false;
         this.cacheEnabled = false;
         this.parallelCalls = 1;
+        this.compiledTransformEnabled = false;
     }
 
     public BasicAgentPipeline() {}
@@ -165,13 +264,77 @@ public class BasicAgentPipeline implements AgentPipeline {
         this.parallelCalls = parallelExecutor != null ? parallelExecutor.getMaxConcurrent() : 1;
     }
 
+    void setCompiledTransformEnabled(boolean enabled) {
+        this.compiledTransformEnabled = enabled;
+    }
+
+    void setCompiledTransformCache(CompiledTransformCache cache) {
+        this.compiledTransformCache = cache;
+    }
+
+    void setTransformCompiler(TransformCompiler compiler) {
+        this.transformCompiler = compiler;
+    }
+
+    void setJsExecutor(GraalJsTransformExecutor executor) {
+        this.jsExecutor = executor;
+    }
+
+    void setLlmCircuitBreaker(CircuitBreaker circuitBreaker) {
+        this.llmCircuitBreaker = circuitBreaker;
+    }
+
+    void setLlmRateLimiter(RateLimiter rateLimiter) {
+        this.llmRateLimiter = rateLimiter;
+    }
+
+    void setPiiMasker(PiiMasker piiMasker) {
+        this.piiMasker = piiMasker;
+    }
+
+    @Override
+    public void close() {
+        if (jsExecutor != null) {
+            try {
+                jsExecutor.close();
+            } catch (Exception e) {
+                log.warn("Error closing JS executor: {}", e.getMessage());
+            }
+        }
+        if (semanticCache != null) {
+            try {
+                semanticCache.close();
+            } catch (Exception e) {
+                log.warn("Error closing semantic cache: {}", e.getMessage());
+            }
+        }
+    }
+
     @Override
     public List<TransformedRecord> process(List<RawRecord> records) {
         if (records.isEmpty()) {
             return List.of();
         }
 
+        // Step 0: Compiled transform lookup (fastest path — no LLM, no network)
+        if (compiledTransformEnabled && compiledTransformCache != null) {
+            Optional<List<TransformedRecord>> compiledResult = tryCompiledTransform(records);
+            if (compiledResult.isPresent()) {
+                if (metrics != null) {
+                    metrics.recordProcessed(compiledResult.get().size());
+                }
+                return compiledResult.get();
+            }
+        }
+
         String batchJson = serializeBatch(records);
+
+        // Step 0b: PII masking (before cache lookup — PII never hits Redis)
+        PiiMasker.MaskResult maskResult = null;
+        if (piiMasker != null && piiMasker.isEnabled()) {
+            maskResult = piiMasker.mask(batchJson);
+            batchJson = maskResult.maskedJson();
+        }
 
         // Step 1: Semantic cache lookup (before routing, per PRD)
         if (cacheEnabled && semanticCache != null) {
@@ -237,7 +400,15 @@ public class BasicAgentPipeline implements AgentPipeline {
             List<TransformedRecord> results = parallelExecutor.execute(subBatches,
                     subBatch -> {
                         String subJson = serializeBatch(subBatch);
+                        PiiMasker.MaskResult subMask = null;
+                        if (piiMasker != null && piiMasker.isEnabled()) {
+                            subMask = piiMasker.mask(subJson);
+                            subJson = subMask.maskedJson();
+                        }
                         String output = callLlmWithRetry(subJson, modelForCall);
+                        if (subMask != null) {
+                            output = piiMasker.unmask(output, subMask.maskMap());
+                        }
                         return parseTransformedRecords(output, subBatch);
                     });
 
@@ -253,6 +424,11 @@ public class BasicAgentPipeline implements AgentPipeline {
         llmOutput = callLlmWithRetry(batchJson, modelForCall);
         long latency = System.currentTimeMillis() - startTime;
 
+        // Unmask PII in LLM output
+        if (maskResult != null) {
+            llmOutput = piiMasker.unmask(llmOutput, maskResult.maskMap());
+        }
+
         if (metrics != null) {
             metrics.recordLlmLatency(latency);
         }
@@ -260,6 +436,11 @@ public class BasicAgentPipeline implements AgentPipeline {
         // Cache store
         if (cacheEnabled && semanticCache != null) {
             semanticCache.store(batchJson, llmOutput);
+        }
+
+        // Trigger async compilation for future batches with the same schema
+        if (compiledTransformEnabled && transformCompiler != null && compiledTransformCache != null) {
+            triggerCompilation(records);
         }
 
         LogContext.withBatch(records.size(), false, finalRouterTier, latency, 0, 0);
@@ -276,6 +457,123 @@ public class BasicAgentPipeline implements AgentPipeline {
         }
 
         return result;
+    }
+
+    /**
+     * Try to execute records through a compiled transform (Tier 0 or Tier 1).
+     * Returns empty if no compiled transform exists for this schema.
+     */
+    private Optional<List<TransformedRecord>> tryCompiledTransform(List<RawRecord> records) {
+        // Fingerprint the first record as representative of the batch
+        RawRecord sample = records.get(0);
+        if (sample.value() == null) {
+            return Optional.empty();
+        }
+
+        String fingerprint = SchemaFingerprinter.fingerprint(sample.value(), targetSchema);
+        Optional<CompiledTransform> cached = compiledTransformCache.get(fingerprint);
+
+        if (cached.isEmpty()) {
+            if (metrics != null) {
+                metrics.recordCompiledTransformMiss();
+            }
+            return Optional.empty();
+        }
+
+        if (metrics != null) {
+            metrics.recordCompiledTransformHit();
+        }
+
+        CompiledTransform transform = cached.get();
+        try {
+            List<TransformedRecord> results = new ArrayList<>();
+            JsonNode mappingSpec = null;
+
+            if (transform.type() == CompiledTransform.Type.DECLARATIVE) {
+                mappingSpec = DeclarativeMappingExecutor.parseMappingSpec(transform.code());
+            }
+
+            for (RawRecord record : records) {
+                if (record.value() == null) {
+                    results.add(new TransformedRecord(record.key(), record.value(),
+                            Map.of(), record.sourceOffset()));
+                    continue;
+                }
+
+                String inputJson = new String(record.value(), StandardCharsets.UTF_8);
+                JsonNode inputNode = objectMapper.readTree(inputJson);
+                JsonNode outputNode;
+
+                if (transform.type() == CompiledTransform.Type.DECLARATIVE) {
+                    outputNode = DeclarativeMappingExecutor.execute(inputNode, mappingSpec);
+                } else {
+                    outputNode = jsExecutor.execute(transform.code(), inputNode);
+                }
+
+                String outputJson = objectMapper.writeValueAsString(outputNode);
+
+                // Validate against target schema
+                List<String> errors = schemaEnforcer.validateWithErrors(outputJson);
+                if (!errors.isEmpty()) {
+                    log.warn("Compiled transform produced invalid output for fingerprint {}: {}",
+                            fingerprint, errors);
+                    // Invalidate this transform — it's producing bad results
+                    compiledTransformCache.invalidate(fingerprint);
+                    if (metrics != null) {
+                        metrics.recordFailed(1);
+                        metrics.recordCompiledTransformInvalidation();
+                    }
+                    return Optional.empty(); // Fall through to LLM path
+                }
+
+                byte[] key = record.key();
+                results.add(new TransformedRecord(key, outputJson.getBytes(StandardCharsets.UTF_8),
+                        Map.of(), record.sourceOffset()));
+            }
+
+            log.debug("Compiled transform hit: type={}, fingerprint={}, records={}",
+                    transform.type(), fingerprint, results.size());
+            return Optional.of(results);
+
+        } catch (GraalJsTransformExecutor.TransformExecutionException e) {
+            log.warn("Compiled JS transform execution failed, invalidating: {}", e.getMessage());
+            compiledTransformCache.invalidate(fingerprint);
+            if (metrics != null) {
+                metrics.recordCompiledTransformInvalidation();
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.warn("Compiled transform failed, falling back to LLM: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Trigger compilation of a transform for the current batch's schema.
+     * This runs synchronously on the first LLM call for a new schema,
+     * so that subsequent batches use the compiled path.
+     */
+    private void triggerCompilation(List<RawRecord> records) {
+        RawRecord sample = records.get(0);
+        if (sample.value() == null) return;
+
+        String fingerprint = SchemaFingerprinter.fingerprint(sample.value(), targetSchema);
+
+        // Already compiled? Skip.
+        if (compiledTransformCache.get(fingerprint).isPresent()) {
+            return;
+        }
+
+        try {
+            if (metrics != null) {
+                metrics.recordCompiledTransformCompilation();
+            }
+            Optional<CompiledTransform> compiled = transformCompiler.compile(records, fingerprint);
+            compiled.ifPresent(ct -> compiledTransformCache.put(fingerprint, ct));
+        } catch (Exception e) {
+            log.warn("Transform compilation failed for fingerprint {}: {}", fingerprint, e.getMessage());
+            // Not fatal — we'll keep using the LLM path for this schema
+        }
     }
 
     private String buildEffectiveSystemPrompt() {
@@ -340,14 +638,46 @@ public class BasicAgentPipeline implements AgentPipeline {
                 .build();
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            // Rate limiting (before circuit breaker)
+            if (llmRateLimiter != null) {
+                if (!llmRateLimiter.tryAcquire()) {
+                    if (metrics != null) {
+                        metrics.recordLlmRateLimited();
+                    }
+                    try {
+                        llmRateLimiter.acquire();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new NonRetryableException("Interrupted during rate limit wait", e);
+                    }
+                }
+            }
+
             if (metrics != null) {
                 metrics.recordLlmCall();
             }
 
-            LlmResponse response = llmClient.call(request);
+            LlmResponse response;
+            final LlmRequest currentRequest = request;
+            try {
+                if (llmCircuitBreaker != null) {
+                    response = llmCircuitBreaker.executeSupplier(() -> llmClient.call(currentRequest));
+                } else {
+                    response = llmClient.call(currentRequest);
+                }
+            } catch (CallNotPermittedException e) {
+                if (metrics != null) {
+                    metrics.recordCircuitBreakerOpen();
+                }
+                throw new RetryableException("LLM circuit breaker is OPEN, retry later", e);
+            }
 
             if (metrics != null) {
                 metrics.recordLlmTokens(response.inputTokens(), response.outputTokens());
+                double costUsd = LlmCostCalculator.calculateCostUsd(response);
+                if (costUsd > 0) {
+                    metrics.recordLlmCost(costUsd);
+                }
             }
 
             log.debug("LLM response (attempt {}): tokens in={}, out={}, cache_create={}, cache_read={}, stop={}",

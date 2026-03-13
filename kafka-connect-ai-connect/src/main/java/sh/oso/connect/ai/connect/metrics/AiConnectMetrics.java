@@ -35,6 +35,12 @@ public class AiConnectMetrics {
     private final Timer adapterFetchLatency;
     private final Timer adapterWriteLatency;
     private final DistributionSummary batchSize;
+    private final Counter compiledTransformHits;
+    private final Counter compiledTransformMisses;
+    private final Counter compiledTransformCompilations;
+    private final Counter compiledTransformInvalidations;
+    private final Counter circuitBreakerOpen;
+    private final Counter llmRateLimited;
 
     AiConnectMetrics(MeterRegistry registry) {
         this.registry = registry;
@@ -109,6 +115,30 @@ public class AiConnectMetrics {
 
         this.batchSize = DistributionSummary.builder(PREFIX + ".batch.size")
                 .description("Batch sizes processed")
+                .register(registry);
+
+        this.compiledTransformHits = Counter.builder(PREFIX + ".compiled.transform.hits.total")
+                .description("Total compiled transform cache hits")
+                .register(registry);
+
+        this.compiledTransformMisses = Counter.builder(PREFIX + ".compiled.transform.misses.total")
+                .description("Total compiled transform cache misses")
+                .register(registry);
+
+        this.compiledTransformCompilations = Counter.builder(PREFIX + ".compiled.transform.compilations.total")
+                .description("Total compiled transform compilations triggered")
+                .register(registry);
+
+        this.compiledTransformInvalidations = Counter.builder(PREFIX + ".compiled.transform.invalidations.total")
+                .description("Total compiled transform invalidations")
+                .register(registry);
+
+        this.circuitBreakerOpen = Counter.builder(PREFIX + ".circuit.breaker.open.total")
+                .description("Total times circuit breaker was open when LLM call attempted")
+                .register(registry);
+
+        this.llmRateLimited = Counter.builder(PREFIX + ".llm.rate.limited.total")
+                .description("Total times LLM calls were rate limited")
                 .register(registry);
     }
 
@@ -237,5 +267,63 @@ public class AiConnectMetrics {
 
     public double getRouterTier3() {
         return routerTier3.count();
+    }
+
+    public void recordCompiledTransformHit() {
+        compiledTransformHits.increment();
+    }
+
+    public void recordCompiledTransformMiss() {
+        compiledTransformMisses.increment();
+    }
+
+    public void recordCompiledTransformCompilation() {
+        compiledTransformCompilations.increment();
+    }
+
+    public void recordCompiledTransformInvalidation() {
+        compiledTransformInvalidations.increment();
+    }
+
+    public void recordCircuitBreakerOpen() {
+        circuitBreakerOpen.increment();
+    }
+
+    public void registerCompiledTransformCacheSize(java.util.function.Supplier<Number> sizeSupplier) {
+        Gauge.builder(PREFIX + ".compiled.transform.cache.size", sizeSupplier)
+                .description("Current number of cached compiled transforms")
+                .register(registry);
+    }
+
+    public double getCompiledTransformHits() {
+        return compiledTransformHits.count();
+    }
+
+    public double getCompiledTransformMisses() {
+        return compiledTransformMisses.count();
+    }
+
+    public double getCompiledTransformCompilations() {
+        return compiledTransformCompilations.count();
+    }
+
+    public double getCompiledTransformInvalidations() {
+        return compiledTransformInvalidations.count();
+    }
+
+    public double getCircuitBreakerOpen() {
+        return circuitBreakerOpen.count();
+    }
+
+    public void recordLlmRateLimited() {
+        llmRateLimited.increment();
+    }
+
+    public double getLlmRateLimited() {
+        return llmRateLimited.count();
+    }
+
+    public double getLlmCostUsd() {
+        return llmCostUsd.count();
     }
 }

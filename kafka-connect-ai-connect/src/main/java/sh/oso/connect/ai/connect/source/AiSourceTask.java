@@ -172,6 +172,13 @@ public class AiSourceTask extends SourceTask {
 
     @Override
     public void stop() {
+        if (pipeline != null) {
+            try {
+                pipeline.close();
+            } catch (Exception e) {
+                log.warn("Error closing pipeline: {}", e.getMessage());
+            }
+        }
         if (adapter != null) {
             adapter.stop();
         }

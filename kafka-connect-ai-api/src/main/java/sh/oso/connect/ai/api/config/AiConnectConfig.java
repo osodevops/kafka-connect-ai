@@ -83,12 +83,28 @@ public final class AiConnectConfig {
     public static final String ROUTER_ENABLED = "ai.router.enabled";
     public static final String ROUTER_DETERMINISTIC_PATTERNS = "ai.router.deterministic.patterns";
 
+    // Compiled transform (compile-once-execute-forever)
+    public static final String COMPILED_TRANSFORM_ENABLED = "ai.compiled.transform.enabled";
+    public static final String COMPILED_TRANSFORM_TTL_SECONDS = "ai.compiled.transform.ttl.seconds";
+    public static final String COMPILED_TRANSFORM_JS_TIMEOUT_MS = "ai.compiled.transform.js.timeout.ms";
+    public static final String COMPILED_TRANSFORM_JS_HEAP_MB = "ai.compiled.transform.js.heap.mb";
+    public static final String COMPILED_TRANSFORM_VALIDATION_SAMPLES = "ai.compiled.transform.validation.samples";
+
     // Connector class names (fully-qualified)
     public static final String SOURCE_CONNECTOR_CLASS = "sh.oso.connect.ai.connect.source.AiSourceConnector";
     public static final String SINK_CONNECTOR_CLASS = "sh.oso.connect.ai.connect.sink.AiSinkConnector";
 
     // HTTP adapter response format
     public static final String HTTP_RESPONSE_FORMAT = "http.response.format";
+
+    // LLM rate limiting
+    public static final String LLM_RATE_LIMIT = "ai.llm.rate.limit";
+
+    // PII masking / privacy
+    public static final String PRIVACY_MASK_FIELDS = "ai.privacy.mask.fields";
+    public static final String PRIVACY_MASK_PATTERNS = "ai.privacy.mask.patterns";
+    public static final String PRIVACY_MASK_REPLACEMENT = "ai.privacy.mask.replacement";
+    public static final String PRIVACY_UNMASK_OUTPUT = "ai.privacy.unmask.output";
 
     // Circuit breaker
     public static final String CIRCUIT_BREAKER_ENABLED = "connect.ai.circuit.breaker.enabled";
