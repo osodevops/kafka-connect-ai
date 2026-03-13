@@ -32,7 +32,7 @@
 
     <scm>
         <connection>scm:git:git://github.com/osodevops/kafka-connect-ai.git</connection>
-        <developerConnection>scm:git:ssh://github.com:osodevops/kafka-connect-ai.git</developerConnection>
+        <developerConnection>scm:git:git@github.com:osodevops/kafka-connect-ai.git</developerConnection>
         <url>https://github.com/osodevops/kafka-connect-ai</url>
         <tag>HEAD</tag>
     </scm>
