@@ -37,11 +37,13 @@ class CassandraAdapterIT {
             .withExposedPorts(9042);
 
     static CqlSession directSession;
-    static String contactPoint;
+    static String contactHost;
+    static String contactPort;
 
     @BeforeAll
     static void setUp() {
-        contactPoint = cassandra.getHost() + ":" + cassandra.getMappedPort(9042);
+        contactHost = cassandra.getHost();
+        contactPort = String.valueOf(cassandra.getMappedPort(9042));
 
         directSession = CqlSession.builder()
                 .addContactPoint(new InetSocketAddress(cassandra.getHost(), cassandra.getMappedPort(9042)))
@@ -71,7 +73,8 @@ class CassandraAdapterIT {
     void sinkWritesToCassandraTable() throws Exception {
         CassandraSinkAdapter sink = new CassandraSinkAdapter();
         sink.start(Map.of(
-                "cassandra.contact.points", contactPoint,
+                "cassandra.contact.points", contactHost,
+                "cassandra.port", contactPort,
                 "cassandra.datacenter", "datacenter1",
                 "cassandra.keyspace", "test_ks",
                 "cassandra.table", "users",
@@ -116,7 +119,8 @@ class CassandraAdapterIT {
 
         CassandraSourceAdapter source = new CassandraSourceAdapter();
         source.start(Map.of(
-                "cassandra.contact.points", contactPoint,
+                "cassandra.contact.points", contactHost,
+                "cassandra.port", contactPort,
                 "cassandra.datacenter", "datacenter1",
                 "cassandra.keyspace", "test_ks",
                 "cassandra.table", "events",
@@ -147,7 +151,8 @@ class CassandraAdapterIT {
 
         CassandraSinkAdapter sink = new CassandraSinkAdapter();
         sink.start(Map.of(
-                "cassandra.contact.points", contactPoint,
+                "cassandra.contact.points", contactHost,
+                "cassandra.port", contactPort,
                 "cassandra.datacenter", "datacenter1",
                 "cassandra.keyspace", "test_ks",
                 "cassandra.table", "users",
@@ -180,7 +185,8 @@ class CassandraAdapterIT {
 
         CassandraSinkAdapter sink = new CassandraSinkAdapter();
         sink.start(Map.of(
-                "cassandra.contact.points", contactPoint,
+                "cassandra.contact.points", contactHost,
+                "cassandra.port", contactPort,
                 "cassandra.datacenter", "datacenter1",
                 "cassandra.keyspace", "test_ks",
                 "cassandra.table", "roundtrip"
@@ -199,7 +205,8 @@ class CassandraAdapterIT {
 
         CassandraSourceAdapter source = new CassandraSourceAdapter();
         source.start(Map.of(
-                "cassandra.contact.points", contactPoint,
+                "cassandra.contact.points", contactHost,
+                "cassandra.port", contactPort,
                 "cassandra.datacenter", "datacenter1",
                 "cassandra.keyspace", "test_ks",
                 "cassandra.table", "roundtrip",

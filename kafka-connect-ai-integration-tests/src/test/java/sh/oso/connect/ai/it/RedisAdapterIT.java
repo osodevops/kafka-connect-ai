@@ -59,7 +59,7 @@ class RedisAdapterIT {
         sink.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.sink.mode", "stream",
-                "redis.stream.key", "test:output:stream"
+                "redis.key", "test:output:stream"
         ));
 
         sink.write(List.of(
@@ -124,9 +124,9 @@ class RedisAdapterIT {
         source.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.source.mode", "stream",
-                "redis.stream.key", streamKey,
-                "redis.consumer.group", "test-group",
-                "redis.consumer.name", "consumer-1",
+                "redis.key", streamKey,
+                "redis.group", "test-group",
+                "redis.consumer", "consumer-1",
                 "redis.poll.interval.ms", "0"
         ));
 
@@ -158,9 +158,9 @@ class RedisAdapterIT {
         source.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.source.mode", "stream",
-                "redis.stream.key", streamKey,
-                "redis.consumer.group", "resume-group",
-                "redis.consumer.name", "consumer-1",
+                "redis.key", streamKey,
+                "redis.group", "resume-group",
+                "redis.consumer", "consumer-1",
                 "redis.poll.interval.ms", "0"
         ));
 
@@ -185,7 +185,7 @@ class RedisAdapterIT {
         sink.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.sink.mode", "stream",
-                "redis.stream.key", streamKey
+                "redis.key", streamKey
         ));
 
         sink.write(List.of(
@@ -205,9 +205,9 @@ class RedisAdapterIT {
         source.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.source.mode", "stream",
-                "redis.stream.key", streamKey,
-                "redis.consumer.group", "roundtrip-group",
-                "redis.consumer.name", "consumer-1",
+                "redis.key", streamKey,
+                "redis.group", "roundtrip-group",
+                "redis.consumer", "consumer-1",
                 "redis.poll.interval.ms", "0"
         ));
 

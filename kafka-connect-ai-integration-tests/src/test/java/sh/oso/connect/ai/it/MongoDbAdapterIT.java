@@ -21,9 +21,12 @@ import sh.oso.connect.ai.api.model.SourceOffset;
 import sh.oso.connect.ai.api.model.TransformedRecord;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -218,24 +221,28 @@ class MongoDbAdapterIT {
                 "mongodb.poll.interval.ms", "500"
         ));
 
-        // Insert documents after starting the change stream
-        Thread inserter = new Thread(() -> {
-            try {
-                Thread.sleep(1000);
-                collection.insertOne(new Document("name", "ChangeStreamUser").append("role", "admin"));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        });
-        inserter.start();
+        // First fetch initialises the change stream cursor (returns empty — no new events yet)
+        List<RawRecord> initial = source.fetch(SourceOffset.empty(), 10);
+        assertNotNull(initial);
 
-        List<RawRecord> records = source.fetch(SourceOffset.empty(), 10);
+        // Now insert a document — the open cursor will see this change
+        collection.insertOne(new Document("name", "ChangeStreamUser").append("role", "admin"));
 
-        // Change stream should pick up at least one insert
-        // Note: timing dependent, may get the init insert or the new one
-        assertNotNull(records);
+        // Poll until the change event arrives (tryNext is non-blocking, so we retry)
+        List<RawRecord> captured = new ArrayList<>();
+        await().atMost(Duration.ofSeconds(10))
+                .pollInterval(Duration.ofMillis(500))
+                .until(() -> {
+                    SourceOffset offset = captured.isEmpty()
+                            ? SourceOffset.empty()
+                            : captured.get(captured.size() - 1).sourceOffset();
+                    List<RawRecord> batch = source.fetch(offset, 10);
+                    captured.addAll(batch);
+                    return !captured.isEmpty();
+                });
 
-        inserter.join(5000);
+        assertTrue(captured.size() >= 1, "Expected at least 1 change stream event");
+
         source.stop();
     }
 }

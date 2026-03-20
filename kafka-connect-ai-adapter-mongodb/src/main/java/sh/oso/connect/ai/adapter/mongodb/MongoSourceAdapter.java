@@ -4,6 +4,7 @@ import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
@@ -37,7 +38,7 @@ public class MongoSourceAdapter implements SourceAdapter {
 
     private MongoClient client;
     private MongoSourceConfig config;
-    private MongoCursor<ChangeStreamDocument<Document>> changeStreamCursor;
+    private MongoChangeStreamCursor<ChangeStreamDocument<Document>> changeStreamCursor;
     private long lastPollTimestamp;
 
     @Override
@@ -94,10 +95,7 @@ public class MongoSourceAdapter implements SourceAdapter {
     }
 
     private List<RawRecord> fetchChangeStream(SourceOffset currentOffset, int maxRecords) {
-        if (changeStreamCursor == null || !changeStreamCursor.hasNext()) {
-            if (changeStreamCursor != null) {
-                changeStreamCursor.close();
-            }
+        if (changeStreamCursor == null) {
             MongoCollection<Document> collection = client
                     .getDatabase(config.database())
                     .getCollection(config.collection());
@@ -112,13 +110,13 @@ public class MongoSourceAdapter implements SourceAdapter {
             }
 
             stream = stream.maxAwaitTime(config.pollIntervalMs(), TimeUnit.MILLISECONDS);
-            changeStreamCursor = stream.iterator();
+            changeStreamCursor = stream.cursor();
         }
 
         List<RawRecord> records = new ArrayList<>();
         int count = 0;
-        while (count < maxRecords && changeStreamCursor.hasNext()) {
-            ChangeStreamDocument<Document> event = changeStreamCursor.next();
+        ChangeStreamDocument<Document> event;
+        while (count < maxRecords && (event = changeStreamCursor.tryNext()) != null) {
             Document fullDoc = event.getFullDocument();
             if (fullDoc == null) {
                 continue;

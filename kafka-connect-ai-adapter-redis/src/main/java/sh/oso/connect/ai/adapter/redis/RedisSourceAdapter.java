@@ -153,8 +153,7 @@ public class RedisSourceAdapter implements SourceAdapter {
             pendingStreams.put(config.key(), new StreamEntryID("0-0"));
 
             XReadGroupParams pendingParams = new XReadGroupParams()
-                    .count(count)
-                    .block(0);
+                    .count(count);
 
             List<Map.Entry<String, List<StreamEntry>>> pendingResult = jedis.xreadGroup(
                     config.group(), config.consumer(), pendingParams, pendingStreams);
@@ -167,8 +166,9 @@ public class RedisSourceAdapter implements SourceAdapter {
                 }
             }
 
-            // If we got pending entries, return them before reading new ones
+            // ACK and return pending entries before reading new ones
             if (!records.isEmpty()) {
+                ackEntries(pendingResult);
                 log.debug("Fetched {} pending records from stream '{}'", records.size(), config.key());
                 return records;
             }
@@ -177,9 +177,10 @@ public class RedisSourceAdapter implements SourceAdapter {
             Map<String, StreamEntryID> newStreams = new HashMap<>();
             newStreams.put(config.key(), StreamEntryID.UNRECEIVED_ENTRY);
 
+            long blockMs = Math.max(config.pollIntervalMs(), 100);
             XReadGroupParams newParams = new XReadGroupParams()
                     .count(count)
-                    .block((int) config.pollIntervalMs());
+                    .block((int) blockMs);
 
             List<Map.Entry<String, List<StreamEntry>>> newResult = jedis.xreadGroup(
                     config.group(), config.consumer(), newParams, newStreams);
@@ -190,6 +191,7 @@ public class RedisSourceAdapter implements SourceAdapter {
                         records.add(toRawRecord(entry.getKey(), streamEntry));
                     }
                 }
+                ackEntries(newResult);
             }
 
             log.debug("Fetched {} new records from stream '{}'", records.size(), config.key());
@@ -198,6 +200,17 @@ public class RedisSourceAdapter implements SourceAdapter {
         }
 
         return records;
+    }
+
+    private void ackEntries(List<Map.Entry<String, List<StreamEntry>>> result) {
+        for (Map.Entry<String, List<StreamEntry>> entry : result) {
+            StreamEntryID[] ids = entry.getValue().stream()
+                    .map(StreamEntry::getID)
+                    .toArray(StreamEntryID[]::new);
+            if (ids.length > 0) {
+                jedis.xack(entry.getKey(), config.group(), ids);
+            }
+        }
     }
 
     private RawRecord toRawRecord(String streamKey, StreamEntry entry) {
