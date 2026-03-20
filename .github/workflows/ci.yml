@@ -30,7 +30,7 @@ jobs:
         run: mvn clean test -B
 
       - name: Package uber JAR
-        run: mvn package -pl kafka-connect-ai-connect -B -DskipTests
+        run: mvn package -pl kafka-connect-ai-connect -am -B -DskipTests
 
       - name: Upload uber JAR
         uses: actions/upload-artifact@v4
