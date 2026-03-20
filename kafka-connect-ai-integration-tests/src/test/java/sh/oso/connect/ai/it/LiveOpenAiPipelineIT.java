@@ -312,9 +312,9 @@ class LiveOpenAiPipelineIT {
         source.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.source.mode", "stream",
-                "redis.stream.key", "e2e:sensors:raw",
-                "redis.consumer.group", "e2e-group",
-                "redis.consumer.name", "e2e-consumer",
+                "redis.key", "e2e:sensors:raw",
+                "redis.group", "e2e-group",
+                "redis.consumer", "e2e-consumer",
                 "redis.poll.interval.ms", "0"
         ));
         List<RawRecord> raw = source.fetch(SourceOffset.empty(), 100);
@@ -338,7 +338,7 @@ class LiveOpenAiPipelineIT {
         sink.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.sink.mode", "stream",
-                "redis.stream.key", "e2e:sensors:analysed"
+                "redis.key", "e2e:sensors:analysed"
         ));
         sink.write(transformed);
         sink.stop();
@@ -418,7 +418,7 @@ class LiveOpenAiPipelineIT {
         redisSink.start(Map.of(
                 "redis.url", redisUrl,
                 "redis.sink.mode", "stream",
-                "redis.stream.key", "e2e:tickets:triaged"
+                "redis.key", "e2e:tickets:triaged"
         ));
         redisSink.write(transformed);
         redisSink.stop();
@@ -454,14 +454,14 @@ class LiveOpenAiPipelineIT {
         String openAiKey = System.getenv("OPENAI_API_KEY");
         BasicAgentPipeline pipeline = new BasicAgentPipeline();
         pipeline.configure(Map.of(
-                "connect.ai.llm.provider", "openai",
-                "connect.ai.llm.api.key", openAiKey,
-                "connect.ai.llm.model", "gpt-4o-mini",
-                "connect.ai.llm.temperature", "0.0",
-                "connect.ai.llm.max.tokens", "2048",
-                "connect.ai.agent.system.prompt", systemPrompt,
-                "connect.ai.structured.output", "false",
-                "connect.ai.agent.enable.prompt.caching", "false"
+                "ai.llm.provider", "openai",
+                "ai.llm.api.key", openAiKey,
+                "ai.llm.model", "gpt-4o-mini",
+                "ai.llm.temperature", "0.0",
+                "ai.llm.max.tokens", "2048",
+                "ai.agent.system.prompt", systemPrompt,
+                "ai.structured.output", "false",
+                "ai.agent.enable.prompt.caching", "false"
         ));
         return pipeline.process(records);
     }
