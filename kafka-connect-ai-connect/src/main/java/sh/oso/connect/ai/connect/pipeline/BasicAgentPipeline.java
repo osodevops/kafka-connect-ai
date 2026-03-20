@@ -29,6 +29,7 @@ import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 public class BasicAgentPipeline implements AgentPipeline, Closeable {
@@ -405,7 +406,7 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
                             subMask = piiMasker.mask(subJson);
                             subJson = subMask.maskedJson();
                         }
-                        String output = callLlmWithRetry(subJson, modelForCall);
+                        String output = callLlmWithRetry(subJson, modelForCall, subBatch.size());
                         if (subMask != null) {
                             output = piiMasker.unmask(output, subMask.maskMap());
                         }
@@ -421,7 +422,7 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
             return results;
         }
 
-        llmOutput = callLlmWithRetry(batchJson, modelForCall);
+        llmOutput = callLlmWithRetry(batchJson, modelForCall, records.size());
         long latency = System.currentTimeMillis() - startTime;
 
         // Unmask PII in LLM output
@@ -451,9 +452,14 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
             metrics.recordProcessed(result.size());
         }
 
-        // Schema drift detection: warn if LLM output record count differs from input
+        // Schema drift detection: fall back to individual processing if count mismatch
         if (result.size() != records.size()) {
-            log.warn("Schema drift detected: input {} records, output {} records", records.size(), result.size());
+            log.warn("Schema drift detected: input {} records, output {} records. "
+                    + "Falling back to individual record processing.", records.size(), result.size());
+            result = processIndividually(records, modelForCall);
+            if (metrics != null) {
+                metrics.recordProcessed(result.size());
+            }
         }
 
         return result;
@@ -593,6 +599,25 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
         return prompt.toString();
     }
 
+    private List<TransformedRecord> processIndividually(List<RawRecord> records, String modelToUse) {
+        List<TransformedRecord> results = new ArrayList<>();
+        for (int i = 0; i < records.size(); i++) {
+            RawRecord record = records.get(i);
+            String singleJson = serializeBatch(List.of(record));
+            try {
+                String output = callLlmWithRetry(singleJson, modelToUse, 1);
+                List<TransformedRecord> parsed = parseTransformedRecords(output, List.of(record));
+                results.addAll(parsed);
+            } catch (Exception e) {
+                log.error("Failed to process record {} individually: {}", i, e.getMessage());
+                if (metrics != null) {
+                    metrics.recordFailed(1);
+                }
+            }
+        }
+        return results;
+    }
+
     String serializeBatch(List<RawRecord> records) {
         try {
             ArrayNode array = objectMapper.createArrayNode();
@@ -616,13 +641,21 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
         }
     }
 
-    private String callLlmWithRetry(String batchJson) {
-        return callLlmWithRetry(batchJson, this.model);
+    private String callLlmWithRetry(String batchJson, String modelToUse) {
+        return callLlmWithRetry(batchJson, modelToUse, -1);
     }
 
-    private String callLlmWithRetry(String batchJson, String modelToUse) {
+    private String callLlmWithRetry(String batchJson, String modelToUse, int expectedRecordCount) {
         String effectiveSystemPrompt = buildEffectiveSystemPrompt();
-        String userPrompt = "Transform the following records:\n" + batchJson;
+        String userPrompt;
+        if (expectedRecordCount > 0) {
+            userPrompt = "Transform the following " + expectedRecordCount
+                    + " records. You MUST return a JSON array with EXACTLY "
+                    + expectedRecordCount + " transformed objects, one per input record. "
+                    + "Do NOT merge, skip, or combine records.\n" + batchJson;
+        } else {
+            userPrompt = "Transform the following records:\n" + batchJson;
+        }
 
         Optional<String> schema = (structuredOutputEnabled && schemaEnforcer.hasSchema())
                 ? Optional.of(targetSchema) : Optional.empty();
@@ -685,10 +718,17 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
                     response.cacheCreationInputTokens(), response.cacheReadInputTokens(),
                     response.stopReason());
 
-            String content = response.content().trim();
+            String content = stripMarkdownFences(response.content().trim());
 
             if (isValidJsonArray(content)) {
                 return content;
+            }
+
+            // Also try extracting JSON array from within a JSON object wrapper
+            // (OpenAI json_object mode may wrap arrays in {"results": [...]})
+            String extracted = extractJsonArray(content);
+            if (extracted != null) {
+                return extracted;
             }
 
             log.warn("LLM returned malformed output (attempt {}). Retrying with correction prompt.", attempt);
@@ -723,6 +763,42 @@ public class BasicAgentPipeline implements AgentPipeline, Closeable {
         } catch (JsonProcessingException e) {
             return false;
         }
+    }
+
+    static String stripMarkdownFences(String text) {
+        if (text == null) return "";
+        String stripped = text.strip();
+        // Remove ```json ... ``` or ``` ... ``` wrapping
+        if (stripped.startsWith("```")) {
+            int firstNewline = stripped.indexOf('\n');
+            if (firstNewline > 0) {
+                stripped = stripped.substring(firstNewline + 1);
+            }
+            if (stripped.endsWith("```")) {
+                stripped = stripped.substring(0, stripped.length() - 3);
+            }
+            return stripped.strip();
+        }
+        return stripped;
+    }
+
+    private String extractJsonArray(String json) {
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            if (node.isObject()) {
+                // OpenAI json_object mode wraps arrays in an object — find the first array field
+                var fields = node.fields();
+                while (fields.hasNext()) {
+                    JsonNode value = fields.next().getValue();
+                    if (value.isArray()) {
+                        return objectMapper.writeValueAsString(value);
+                    }
+                }
+            }
+        } catch (JsonProcessingException e) {
+            // not valid JSON at all
+        }
+        return null;
     }
 
     List<TransformedRecord> parseTransformedRecords(String llmOutput, List<RawRecord> originalRecords) {

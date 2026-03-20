@@ -14,13 +14,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class OpenAiClient implements LlmClient {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiClient.class);
     private static final String DEFAULT_BASE_URL = "https://api.openai.com";
-    private static final int MAX_RETRIES = 3;
+    private static final int MAX_RETRIES = 5;
     private static final Duration INITIAL_BACKOFF = Duration.ofSeconds(1);
+    private static final double JITTER_FACTOR = 0.25;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -59,10 +61,24 @@ public class OpenAiClient implements LlmClient {
                         throw new RetryableException(
                                 "OpenAI API returned " + response.statusCode() + " after " + MAX_RETRIES + " retries");
                     }
-                    Duration backoff = INITIAL_BACKOFF.multipliedBy((long) Math.pow(2, attempt - 1));
+                    // Respect Retry-After header if present, otherwise exponential backoff with jitter
+                    long backoffMs;
+                    var retryAfter = response.headers().firstValue("Retry-After");
+                    if (retryAfter.isPresent()) {
+                        try {
+                            backoffMs = (long) (Double.parseDouble(retryAfter.get()) * 1000);
+                        } catch (NumberFormatException e) {
+                            backoffMs = INITIAL_BACKOFF.multipliedBy((long) Math.pow(2, attempt - 1)).toMillis();
+                        }
+                    } else {
+                        backoffMs = INITIAL_BACKOFF.multipliedBy((long) Math.pow(2, attempt - 1)).toMillis();
+                    }
+                    // Add random jitter to prevent thundering herd
+                    long jitter = (long) (backoffMs * JITTER_FACTOR * ThreadLocalRandom.current().nextDouble());
+                    backoffMs += jitter;
                     log.warn("OpenAI API returned {}. Retrying in {}ms (attempt {}/{})",
-                            response.statusCode(), backoff.toMillis(), attempt, MAX_RETRIES);
-                    Thread.sleep(backoff.toMillis());
+                            response.statusCode(), backoffMs, attempt, MAX_RETRIES);
+                    Thread.sleep(backoffMs);
                     continue;
                 }
 
@@ -122,6 +138,10 @@ public class OpenAiClient implements LlmClient {
                 jsonSchemaNode.put("name", "transform");
                 jsonSchemaNode.put("strict", true);
                 jsonSchemaNode.set("schema", objectMapper.readTree(request.jsonSchema().get()));
+            } else {
+                // Fallback: force valid JSON output even without a schema
+                ObjectNode responseFormat = root.putObject("response_format");
+                responseFormat.put("type", "json_object");
             }
 
             return objectMapper.writeValueAsString(root);
